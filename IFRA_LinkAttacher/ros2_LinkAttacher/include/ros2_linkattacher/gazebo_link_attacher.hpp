@@ -1,7 +1,4 @@
-<?xml version="1.0" ?>
-
-<!-- 
-
+/*
 # ===================================== COPYRIGHT ===================================== #
 #                                                                                       #
 #  IFRA (Intelligent Flexible Robotics and Assembly) Group, CRANFIELD UNIVERSITY        #
@@ -19,53 +16,61 @@
 #                                                                                       #
 #  IFRA Group - Cranfield University                                                    #
 #  AUTHORS: Mikel Bueno Viso - Mikel.Bueno-Viso@cranfield.ac.uk                         #
-#           Seemal Asif      - s.asif@cranfield.ac.uk                                   #
-#           Phil Webb        - p.f.webb@cranfield.ac.uk                                 #
+#           Dr. Seemal Asif  - s.asif@cranfield.ac.uk                                   #
+#           Prof. Phil Webb  - p.f.webb@cranfield.ac.uk                                 #
 #                                                                                       #
-#  Date: July, 2022.                                                                    #
+#  Date: May, 2023.                                                                     #
 #                                                                                       #
 # ===================================== COPYRIGHT ===================================== #
 
 # ======= CITE OUR WORK ======= #
 # You can cite our work with the following statement:
-# IFRA (2022) ROS2.0 ROBOT SIMULATION. URL: https://github.com/IFRA-Cranfield/ros2_RobotSimulation.
+# IFRA-Cranfield (2023) Gazebo-ROS2 Link Attacher. URL: https://github.com/IFRA-Cranfield/IFRA_LinkAttacher.
+*/
 
--->
+#ifndef GAZEBO_LINK_ATTACHER_HPP_
+#define GAZEBO_LINK_ATTACHER_HPP_
 
-<sdf version="1.4">
+#include <gazebo/common/Plugin.hh>
+#include <memory>
 
-  <world name="default">
-    <include>
-      <uri>model://ground_plane</uri>
-    </include>
+struct JointSTRUCT
+{
+  std::string model1;
+  gazebo::physics::ModelPtr m1;
+  std::string link1;
+  gazebo::physics::LinkPtr l1;
+  std::string model2;
+  gazebo::physics::ModelPtr m2;
+  std::string link2;
+  gazebo::physics::LinkPtr l2;
+  gazebo::physics::JointPtr joint;
+};
 
-    <include>
-      <uri>model://sun</uri>
-    </include>
+namespace gazebo_ros
+{
 
-    <scene>
-      <shadows>0</shadows>
-    </scene>
+class GazeboLinkAttacherPrivate;
 
-    <!-- GAZEBO PLUGINS: -->
-    <!-- The following plugins must be activated for the ros2_grasping to effectively work: -->
+class GazeboLinkAttacher : public gazebo::WorldPlugin
+{
+public:
+  
+  // Constructor:
+  GazeboLinkAttacher();
 
-    <plugin name="gazebo_ros_state" filename="libgazebo_ros_state.so">
-      <ros>
-        <namespace>/ros2_grasp</namespace>
-        <argument>model_states:=model_states</argument>
-        <argument>link_states:=link_states</argument>
-      </ros>
-      <update_rate>1.0</update_rate>
-    </plugin>
+  // Destructor:
+  virtual ~GazeboLinkAttacher();
 
-    <plugin name="gazebo_ros_properties" filename="libgazebo_ros_properties.so">
-      <ros>
-        <namespace>/ros2_grasp</namespace>
-      </ros>
-    </plugin>
+  // LOAD plugin:
+  void Load(gazebo::physics::WorldPtr _world, sdf::ElementPtr _sdf) override;
 
-    <plugin name="gazebo_link_attacher" filename="libgazebo_link_attacher.so"/>
+private:
 
-  </world>
-</sdf>
+  std::unique_ptr<GazeboLinkAttacherPrivate> impl_;
+
+};
+
+}  // namespace gazebo_ros
+
+#endif  // GAZEBO_LINK_ATTACHER_HPP_
