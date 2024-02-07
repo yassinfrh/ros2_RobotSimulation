@@ -256,8 +256,8 @@ class MoveXYZWclient(Node):
         # 1. Assign variables:
         goal_msg = MoveXYZW.Goal()
         goal_msg.positionx = GoalXYZWx
-        goal_msg.positionx = GoalXYZWy
-        goal_msg.positionx = GoalXYZWz
+        goal_msg.positiony = GoalXYZWy
+        goal_msg.positionz = GoalXYZWz
         goal_msg.yaw = GoalXYZWyaw
         goal_msg.pitch = GoalXYZWpitch
         goal_msg.roll = GoalXYZWroll
@@ -304,8 +304,8 @@ class MoveXYZclient(Node):
         # 1. Assign variables:
         goal_msg = MoveXYZ.Goal()
         goal_msg.positionx = GoalXYZx
-        goal_msg.positionx = GoalXYZy
-        goal_msg.positionx = GoalXYZz
+        goal_msg.positiony = GoalXYZy
+        goal_msg.positionz = GoalXYZz
         goal_msg.speed = JointSPEED         
         # 2. ACTION CALL:
         self._send_goal_future = self._action_client.send_goal_async(goal_msg, feedback_callback=self.feedback_callback)
@@ -740,7 +740,7 @@ def main(args=None):
 
     EXISTS = False
     PR_NAME = PARAM_PROGRAM
-    filepath = os.path.join(os.path.expanduser('~'), 'dev_ws', 'src', 'ros2_RobotSimulation', 'ros2_execution', 'programs', PR_NAME + ".txt")
+    filepath = os.path.join(os.path.expanduser('~'), 'ros_ws', 'src', 'ros2_RobotSimulation', 'ros2_execution', 'programs', PR_NAME + ".txt")
     EXISTS = os.path.exists(filepath)
     if (EXISTS == True):
         print(PR_NAME + " file found! Executing program...")
