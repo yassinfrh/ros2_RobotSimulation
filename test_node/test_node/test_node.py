@@ -2,26 +2,34 @@ import rclpy
 import xacro
 import os
 import time
-import math
-import numpy as np
 from scipy.spatial.transform import Rotation
 
 from ament_index_python.packages import get_package_share_directory
 from rclpy.node import Node
 from rclpy.action import ActionClient
-from std_msgs.msg import String
 from ros2_data.action import MoveXYZ
-from ros2_data.action import MoveG
 from ros2_data.action import MoveL
 from ros2_data.action import MoveXYZW
-from ros2_grasping.action import Attacher
 from gazebo_msgs.srv import SpawnEntity
+from linkattacher_msgs.srv import AttachLink, DetachLink
 
+# Global variables:
 RES = "null"
 HAND_TO_EE = 0.17047
 EE_TO_BOX = 0.15
-
 R_tool_to_EE = Rotation.from_euler('ZYX', [45, 0, 0], degrees=True)
+robot_model = "irb120"
+ee_link = "EE_egp64"
+
+# Nodes
+spawn_object = None
+XYZclient = None
+Lclient = None
+XYZWclient = None
+gripper_control = None
+attacher_control = None
+detacher_control = None
+
 
 
 # Class to spawn an object in the Gazebo world:
@@ -224,122 +232,115 @@ class MoveGclient(Node):
         # NO FEEDBACK NEEDED IN MoveG ACTION CALL.
 
 # Class to attach the object to the robot's gripper:
-class ATTACHERclient(Node):
+class AttacherClient(Node):
     
     def __init__(self):
         # 1. Initialise node:
         super().__init__('Attacher_client')
-        self._action_client = ActionClient(self, Attacher, 'Attacher')
-        # 2. Wait for ATTACHER server to be available:
-        print ("Waiting for ATTACHER action server to be available...")
-        self._action_client.wait_for_server()
-        print ("Attacher ACTION SERVER detected.")
-    
-    def send_goal(self, object, endeffector):
+        # 2. Declare SERVICE CLIENT:
+        self.client = self.create_client(AttachLink, 'ATTACHLINK')
+        # 3. Wait for ATTACHLINK service to be available:
+        while not self.client.wait_for_service(timeout_sec=1.0):
+            self.get_logger().info('service not available, waiting again...')
+        self.req = AttachLink.Request()
+
+    def call(self, model1, link1, model2, link2):
         # 1. Assign variables:
-        goal_msg = Attacher.Goal()
-        goal_msg.object = object
-        goal_msg.endeffector = endeffector
-        # 2. ACTION CALL:
-        self._send_goal_future = self._action_client.send_goal_async(goal_msg)
+        self.req.model1_name = model1
+        self.req.link1_name = link1
+        self.req.model2_name = model2
+        self.req.link2_name = link2
+        # 2. SERVICE CALL:
+        self.future = self.client.call_async(self.req)    
 
 # Class to detach the object from the robot's gripper:
-class DetacherPUB(Node):
+class DetacherClient(Node):
     
     def __init__(self):
         # Declare NODE:
-        super().__init__("ros2_PUBLISHER")
-        # Declare PUBLISHER:
-        self.publisher_ = self.create_publisher(String, "ros2_Detach", 5) #(msgType, TopicName, QueueSize)
+        super().__init__("Detacher_client")
+        # Declare SERVICE CLIENT:
+        self.client = self.create_client(DetachLink, 'DETACHLINK')
+        # Wait for DETACHLINK service to be available:
+        while not self.client.wait_for_service(timeout_sec=1.0):
+            self.get_logger().info('service not available, waiting again...')
+        self.req = DetachLink.Request()
+
+    def call(self, model1, link1, model2, link2):
+        # 1. Assign variables:
+        self.req.model1_name = model1
+        self.req.link1_name = link1
+        self.req.model2_name = model2
+        self.req.link2_name = link2
+        # 2. SERVICE CALL:
+        self.future = self.client.call_async(self.req)
 
 # Function to move object from one position to another:
-def move_object(x1, y1, z1, x2, y2, z2, object, move_robot, move_robotL, move_robotW, gripper_control, attacher_control, detach_publisher):
+def move_object(start_position, goal_position, object, object_link):
     global RES
 
+    # Extract coordinates from start_position and goal_position
+    x1, y1, z1 = start_position
+    x2, y2, z2 = goal_position
+
     # Move the robot above the box
-    R_base_to_EE = Rotation.from_euler('ZYX', [90, 0, 90], degrees=True)
-    R_base_to_tool = R_base_to_EE * R_tool_to_EE.inv()
-    yaw, pitch, roll = R_base_to_tool.as_euler('ZYX', degrees=True)
-    move_robotW.send_goal(x1 - HAND_TO_EE, y1, z1 + EE_TO_BOX, yaw, pitch, roll, 1.0)
+    R_base_to_EE = Rotation.from_euler('ZYX', [90, 0, 90], degrees=True) # Desired orientation of the end effector
+    R_base_to_tool = R_base_to_EE * R_tool_to_EE.inv()  # Compute orientation of tool so that the end effector has the desired orientation
+    yaw, pitch, roll = R_base_to_tool.as_euler('ZYX', degrees=True) # Convert orientation to Euler angles
+    XYZWclient.send_goal(x1 - HAND_TO_EE, y1, z1 + EE_TO_BOX, yaw, pitch, roll, 1.0) # Move the robot to the desired position and orientation
     # Wait for the robot to move
     while rclpy.ok():
-                rclpy.spin_once(move_robotW)
+                rclpy.spin_once(XYZWclient)
                 if (RES != "null"):
                     break
     RES = "null"
     
-    # Open the gripper
-    gripper_control.send_goal(0.0)
-    # Wait for the gripper to open
-    while rclpy.ok():
-                rclpy.spin_once(gripper_control)
-                if (RES != "null"):
-                    break
-    RES = "null"
     # Move the robot down to the box
-    move_robotL.send_goal(0.0, 0.0, -EE_TO_BOX, 1.0)
+    Lclient.send_goal(0.0, 0.0, -EE_TO_BOX, 1.0)
     # Wait for the robot to move
     while rclpy.ok():
-                rclpy.spin_once(move_robotL)
+                rclpy.spin_once(Lclient)
                 if (RES != "null"):
                     break
     print(RES)
     RES = "null"
-    # Close the gripper
-    gripper_control.send_goal(0.009)
-    # Wait for the gripper to close
-    while rclpy.ok():
-                rclpy.spin_once(gripper_control)
-                if (RES != "null"):
-                    break
-    RES = "null"
     # Attach the box to the robot's gripper
-    attacher_control.send_goal(object, 'EE_egp64')
+    attacher_control.call(robot_model, ee_link, object, object_link)
     # Wait for the box to be attached
     rclpy.spin_once(attacher_control)
     # Move the robot up
-    move_robotL.send_goal(0.0, 0.0, EE_TO_BOX + 0.2, 1.0)
+    Lclient.send_goal(0.0, 0.0, EE_TO_BOX, 1.0)
     # Wait for the robot to move
     while rclpy.ok():
-                rclpy.spin_once(move_robotL)
+                rclpy.spin_once(Lclient)
                 if (RES != "null"):
                     break
     RES = "null"
     # Move the robot to the new position
-    move_robotL.send_goal(x2-x1, y2-y1, z2-z1, 1.0)
+    XYZclient.send_goal(x2 - HAND_TO_EE, y2, z2 + EE_TO_BOX + 0.1, 1.0)
     # Wait for the robot to move
     while rclpy.ok():
-                rclpy.spin_once(move_robotL)
+                rclpy.spin_once(XYZclient)
                 if (RES != "null"):
                     break
     RES = "null"
     # Move the robot down
-    move_robotL.send_goal(0.0, 0.0, -EE_TO_BOX - 0.2, 1.0)
+    Lclient.send_goal(0.0, 0.0, -EE_TO_BOX, 1.0)
     # Wait for the robot to move
     while rclpy.ok():
-                rclpy.spin_once(move_robotL)
+                rclpy.spin_once(Lclient)
                 if (RES != "null"):
                     break
     RES = "null"
     # Detach the box from the robot's gripper
-    msg = String()
-    msg.data = "True"
-    t_end = time.time() + 1
-    while time.time() < t_end:
-        detach_publisher.publisher_.publish(msg)
-    # Open the gripper
-    gripper_control.send_goal(0.0)
-    # Wait for the gripper to open
-    while rclpy.ok():
-                rclpy.spin_once(gripper_control)
-                if (RES != "null"):
-                    break
-    RES = "null"
+    detacher_control.call(robot_model, ee_link, object, object_link)
+    # Wait for the box to be detached
+    rclpy.spin_once(detacher_control)
     # Move the robot up
-    move_robotL.send_goal(0.0, 0.0, EE_TO_BOX, 1.0)
+    Lclient.send_goal(0.0, 0.0, EE_TO_BOX, 1.0)
     # Wait for the robot to move
     while rclpy.ok():
-                rclpy.spin_once(move_robotL)
+                rclpy.spin_once(Lclient)
                 if (RES != "null"):
                     break
     RES = "null"
@@ -348,26 +349,31 @@ def move_object(x1, y1, z1, x2, y2, z2, object, move_robot, move_robotL, move_ro
 
 # Main function:
 def main(args=None):
-    global RES
+    global RES, spawn_object, XYZclient, Lclient, XYZWclient, attacher_control, detacher_control
 
     rclpy.init(args=args)
 
     spawn_object = SpawnObject()
-    move_robot = MoveXYZclient()
-    move_robotL = MoveLclient()
-    move_robotW = MoveXYZWclient()
-    gripper_control = MoveGclient()
-    attacher_control = ATTACHERclient()
-    detach_publisher = DetacherPUB()
+    XYZclient = MoveXYZclient()
+    Lclient = MoveLclient()
+    XYZWclient = MoveXYZWclient()
+    attacher_control = AttacherClient()
+    detacher_control = DetacherClient()
+
+    # Position of the box
+    box_position = [0.5, -0.3, 0.75]
 
 
     # Spawn the box
-    spawn_object.spawn_object('ros2_grasping', 'box.urdf', 'box', 0.5, -0.3, 0.75)
+    spawn_object.spawn_object('ros2_grasping', 'box.urdf', 'box', box_position[0], box_position[1], box_position[2])
     # Wait for the object to spawn
     rclpy.spin_once(spawn_object)
+
+    # Goal position
+    goal_position = [0.5, 0.3, 0.75]
     
     # Move the object from one position to another
-    move_object(0.5, -0.3, 0.8, 0.5, 0.3, 0.8, 'box', move_robot, move_robotL, move_robotW, gripper_control, attacher_control, detach_publisher)
+    move_object(box_position, goal_position, 'box', 'box')
 
     
     rclpy.shutdown()
