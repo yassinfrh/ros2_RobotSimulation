@@ -361,7 +361,7 @@ def main(args=None):
     detacher_control = DetacherClient()
 
     # Position of the box
-    box_position = [0.5, -0.3, 0.75]
+    box_position = [0.6, -0.3, 0.75]
 
 
     # Spawn the box
@@ -370,7 +370,7 @@ def main(args=None):
     rclpy.spin_once(spawn_object)
 
     # Goal position
-    goal_position = [0.5, 0.3, 0.75]
+    goal_position = [0.6, 0.3, 0.75]
     
     # Move the object from one position to another
     move_object(box_position, goal_position, 'box', 'box')
