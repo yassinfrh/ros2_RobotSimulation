@@ -21,7 +21,8 @@ setup(
     entry_points={
         'console_scripts': [
             'test_node = test_node.test_node:main',
-            'orientation_node = test_node.orientation:main'
+            'orientation_node = test_node.orientation:main',
+            'webcam_node = test_node.webcam:main',
         ],
     },
 )
