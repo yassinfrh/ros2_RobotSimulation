@@ -83,7 +83,7 @@ class Yolov8Node(Node):
 
         # subs
         self._sub = self.create_subscription(
-            Image, "/webcam/image_raw", self.image_cb,
+            Image, "/camera1/image_raw", self.image_cb,
             image_qos_profile
         )
 

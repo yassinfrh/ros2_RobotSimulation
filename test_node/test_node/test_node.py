@@ -189,48 +189,6 @@ class MoveLclient(Node):
         feedback = feedback_msg.feedback
         # NO FEEDBACK NEEDED IN MoveL ACTION CALL.
 
-# Class to open and close the gripper:
-class MoveGclient(Node):
-    
-    def __init__(self):
-        # 1. Initialise node:
-        super().__init__('MoveG_client')
-        self._action_client = ActionClient(self, MoveG, 'MoveG')
-        # 2. Wait for MoveG server to be available:
-        print ("Waiting for MoveG action server to be available...")
-        self._action_client.wait_for_server()
-        print ("MoveG ACTION SERVER detected.")
-    
-    def send_goal(self, GP):
-        # 1. Assign variables:
-        goal_msg = MoveG.Goal()
-        goal_msg.goal = GP
-        # 2. ACTION CALL:
-        self._send_goal_future = self._action_client.send_goal_async(goal_msg, feedback_callback=self.feedback_callback)
-        self._send_goal_future.add_done_callback(self.goal_response_callback)
-
-    def goal_response_callback(self, future):
-        goal_handle = future.result()
-        if not goal_handle.accepted:
-            self.get_logger().info('Goal rejected :(')
-            return
-        self.get_logger().info('Goal accepted :)')
-        self._get_result_future = goal_handle.get_result_async()
-        self._get_result_future.add_done_callback(self.get_result_callback)
-    
-    def get_result_callback(self, future):
-        global RES
-        # 1. Assign RESULT variable:
-        result = future.result().result
-        RES = result.result
-        # 2. Print RESULT:
-        print ("MoveG ACTION CALL finished.")
-
-    def feedback_callback(self, feedback_msg):
-        # 1. Assign FEEDBACK variable:
-        feedback = feedback_msg.feedback
-        # NO FEEDBACK NEEDED IN MoveG ACTION CALL.
-
 # Class to attach the object to the robot's gripper:
 class AttacherClient(Node):
     
