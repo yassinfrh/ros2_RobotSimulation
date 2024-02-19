@@ -323,7 +323,7 @@ def main(args=None):
 
 
     # Spawn the box
-    spawn_object.spawn_object('ros2_grasping', 'box.urdf', 'box', box_position[0], box_position[1], box_position[2])
+    spawn_object.spawn_object('ros2_grasping', 'red_box.urdf', 'red_box', box_position[0], box_position[1], box_position[2])
     # Wait for the object to spawn
     rclpy.spin_once(spawn_object)
 
@@ -331,7 +331,7 @@ def main(args=None):
     goal_position = [0.6, 0.3, 0.75]
     
     # Move the object from one position to another
-    move_object(box_position, goal_position, 'box', 'box')
+    move_object(box_position, goal_position, 'red_box', 'red_box')
 
     
     rclpy.shutdown()

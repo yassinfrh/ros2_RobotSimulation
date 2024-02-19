@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
-<robot name="box">
+<robot name="red_box">
 
-  <link name="box">
+  <link name="red_box">
     <collision>
       <origin xyz= "0.0 0.0 0.0" rpy="0 0 0"/>
       <geometry>
@@ -31,7 +31,7 @@
     </inertial>
   </link>
 
-  <gazebo reference="box">
+  <gazebo reference="red_box">
     <material>Gazebo/Red</material>
     <mu1>1000.0</mu1>
     <mu2>1000.0</mu2>
