@@ -23,6 +23,7 @@ setup(
             'test_node = test_node.test_node:main',
             'orientation_node = test_node.orientation:main',
             'webcam_node = test_node.webcam:main',
+            'spawn_boxes = test_node.spawn_boxes:main',
         ],
     },
 )

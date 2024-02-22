@@ -1,11 +1,24 @@
 import cv2 as cv
-from math import atan2, cos, sin, sqrt, pi
+from math import atan2, cos, sin, sqrt, pi, tan
 import numpy as np
 
 import rclpy
 from rclpy.node import Node
 from sensor_msgs.msg import Image
 from cv_bridge import CvBridge
+from scipy.spatial.transform import Rotation
+
+# Object surface Z distance from the camera
+OBJECT_DISTANCE = 0.57
+
+# Camera extrinsic parameters
+CAMERA_POSITION = np.array([0.7, 0.0, 1.35])
+CAMERA_ORIENTATION = Rotation.from_euler('y', 45, degrees=True)
+
+# Camera parameters
+HEIGHT = 400
+WIDTH = 800
+K_MATRIX = np.array([[476.7030836014194, 0.0, 400.5], [0.0, 476.7030836014194, 200.5], [0.0, 0.0, 1.0]])
 
 class OrientationNode(Node):
     def __init__(self):
@@ -40,28 +53,63 @@ class OrientationNode(Node):
         hsv = cv.cvtColor(img, cv.COLOR_BGR2HSV)
 
         # Threshold the HSV image to get only red colors
-        red_mask = cv.inRange(hsv, (0, 100, 100), (10, 255, 255))
+        red_mask = cv.inRange(hsv, (0, 100, 240), (10, 255, 255))
 
         # Threshold the HSV image to get only green colors
-        green_mask = cv.inRange(hsv, (40, 40, 40), (70, 255, 255))
+        green_mask = cv.inRange(hsv, (40, 40, 240), (70, 255, 255))
 
         # Threshold the HSV image to get only blue colors
-        blue_mask = cv.inRange(hsv, (110, 50, 50), (130, 255, 255))
+        blue_mask = cv.inRange(hsv, (110, 50, 240), (130, 255, 255))
 
-        # Find bounding box of each color
-        red_bbox = cv.boundingRect(red_mask)
-        green_bbox = cv.boundingRect(green_mask)
-        blue_bbox = cv.boundingRect(blue_mask)
+        # Find contours in the masks
+        red_contours, _ = cv.findContours(red_mask, cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
+        green_contours, _ = cv.findContours(green_mask, cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
+        blue_contours, _ = cv.findContours(blue_mask, cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
 
-        # Draw the bounding boxes in black
-        cv.rectangle(img, (red_bbox[0], red_bbox[1]), (red_bbox[0]+red_bbox[2], red_bbox[1]+red_bbox[3]), (0, 0, 0), 2)
-        cv.rectangle(img, (green_bbox[0], green_bbox[1]), (green_bbox[0]+green_bbox[2], green_bbox[1]+green_bbox[3]), (0, 0, 0), 2)
-        cv.rectangle(img, (blue_bbox[0], blue_bbox[1]), (blue_bbox[0]+blue_bbox[2], blue_bbox[1]+blue_bbox[3]), (0, 0, 0), 2)
+        # Find position of the objects
+        if len(red_contours) > 0:
+            red_contour = max(red_contours, key=cv.contourArea)
+            red_position = self.find_position(red_contour, img)
+            # Draw contour
+            cv.drawContours(img, [red_contour], 0, (0, 0, 0), 2)
+
+        if len(green_contours) > 0:
+            green_contour = max(green_contours, key=cv.contourArea)
+            green_position = self.find_position(green_contour, img)
+
+
+        if len(blue_contours) > 0:
+            blue_contour = max(blue_contours, key=cv.contourArea)
+            blue_position = self.find_position(blue_contour, img)
 
         # Show the image
         cv.imshow('Image', img)
         cv.waitKey(1)
+
+    def find_position(self, contour, img):
+        # Compute the center of the contour
+        M = cv.moments(contour)
+        if M["m00"] == 0:
+            return None
+        cX = int(M["m10"] / M["m00"])
+        cY = int(M["m01"] / M["m00"])
+
+        # Compute the distance from the camera to the object
+        z = OBJECT_DISTANCE
+
+        # Compute the position of the object in the camera frame
+        x = (cX - K_MATRIX[0, 2]) * z / K_MATRIX[0, 0]
+        y = (cY - K_MATRIX[1, 2]) * z / K_MATRIX[1, 1]
+
+        # Write the position on the image above the object
+        font = cv.FONT_HERSHEY_SIMPLEX
+        cv.putText(img, 'x: {:.2f} m'.format(x), (cX, cY - 20), font, 0.5, (0, 0, 0), 1, cv.LINE_AA)
+        cv.putText(img, 'y: {:.2f} m'.format(y), (cX, cY - 5), font, 0.5, (0, 0, 0), 1, cv.LINE_AA)
+
+        return np.array([x, y, z])
         
+        
+
 
 
 def main(args=None):
