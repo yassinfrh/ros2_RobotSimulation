@@ -13,11 +13,9 @@ OBJECT_DISTANCE = 0.57
 
 # Camera extrinsic parameters
 CAMERA_POSITION = np.array([0.7, 0.0, 1.35])
-CAMERA_ORIENTATION = Rotation.from_euler('y', 45, degrees=True)
+CAMERA_ORIENTATION = Rotation.from_euler('XYZ', [-180, 0.0, 90.0], degrees=True)
 
-# Camera parameters
-HEIGHT = 400
-WIDTH = 800
+# Camera intrinsic parameters
 K_MATRIX = np.array([[476.7030836014194, 0.0, 400.5], [0.0, 476.7030836014194, 200.5], [0.0, 0.0, 1.0]])
 
 class OrientationNode(Node):
@@ -70,8 +68,6 @@ class OrientationNode(Node):
         if len(red_contours) > 0:
             red_contour = max(red_contours, key=cv.contourArea)
             red_position = self.find_position(red_contour, img)
-            # Draw contour
-            cv.drawContours(img, [red_contour], 0, (0, 0, 0), 2)
 
         if len(green_contours) > 0:
             green_contour = max(green_contours, key=cv.contourArea)
@@ -101,12 +97,18 @@ class OrientationNode(Node):
         x = (cX - K_MATRIX[0, 2]) * z / K_MATRIX[0, 0]
         y = (cY - K_MATRIX[1, 2]) * z / K_MATRIX[1, 1]
 
+        # Compute the position of the object in the world frame
+        camera_position = CAMERA_POSITION
+        camera_orientation = CAMERA_ORIENTATION.as_matrix()
+        object_position = np.array([x, y, z])
+        object_position_world = camera_position + np.dot(camera_orientation, object_position)
+
         # Write the position on the image above the object
         font = cv.FONT_HERSHEY_SIMPLEX
-        cv.putText(img, 'x: {:.2f} m'.format(x), (cX, cY - 20), font, 0.5, (0, 0, 0), 1, cv.LINE_AA)
-        cv.putText(img, 'y: {:.2f} m'.format(y), (cX, cY - 5), font, 0.5, (0, 0, 0), 1, cv.LINE_AA)
+        cv.putText(img, 'X: {:.2f} m'.format(object_position_world[0]), (cX, cY-20), font, 0.5, (0, 0, 0), 1, cv.LINE_AA)
+        cv.putText(img, 'Y: {:.2f} m'.format(object_position_world[1]), (cX, cY), font, 0.5, (0, 0, 0), 1, cv.LINE_AA)
 
-        return np.array([x, y, z])
+        return object_position_world
         
         
 

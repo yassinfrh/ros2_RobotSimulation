@@ -1,0 +1,11 @@
+float64 start_position_x
+float64 start_position_y
+float64 start_position_z
+float64 end_position_x
+float64 end_position_y
+float64 end_position_z
+string object_name
+---
+bool success
+---
+string stage
