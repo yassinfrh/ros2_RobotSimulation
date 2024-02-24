@@ -5,21 +5,20 @@ from rclpy.action import ActionServer, ActionClient
 from scipy.spatial.transform import Rotation
 import numpy
 
-from ros2_data.action import MoveXYZ
-from ros2_data.action import MoveL
-from ros2_data.action import MoveXYZW
+from ros2_data.action import MoveXYZ, MoveL, MoveXYZW, MoveG
+
 from linkattacher_msgs.srv import AttachLink, DetachLink
 
 from pick_place_interface.action import PickPlace
 
 # Global variables:
 RES = "null"
-HAND_TO_EE = 0.17047
+HAND_TO_EE = 0.103
 EE_TO_BOX = 0.15
-R_tool_to_EE = Rotation.from_euler('ZYX', [45, 0, 0], degrees=True)
-robot_model = "irb120"
-ee_link = "EE_egp64"
-initial_position = numpy.array([0.546611, 0.000756, 1.123647])
+R_tool_to_EE = Rotation.from_euler('XYZ', [90, 45, 90], degrees=True)
+robot_model = "panda"
+ee_link = "end_effector_frame"
+initial_position = numpy.array([0.3, 0.0, 1.0])
 
 # Class to move the robot to a specific position:
 class MoveXYZclient(Node):
@@ -203,6 +202,48 @@ class DetacherClient(Node):
         # 2. SERVICE CALL:
         self.future = self.client.call_async(self.req)
 
+# Class to open and close the gripper:
+class MoveGclient(Node):
+    
+    def __init__(self):
+        # 1. Initialise node:
+        super().__init__('MoveG_client')
+        self._action_client = ActionClient(self, MoveG, 'MoveG')
+        # 2. Wait for MoveG server to be available:
+        print ("Waiting for MoveG action server to be available...")
+        self._action_client.wait_for_server()
+        print ("MoveG ACTION SERVER detected.")
+    
+    def send_goal(self, GP):
+        # 1. Assign variables:
+        goal_msg = MoveG.Goal()
+        goal_msg.goal = GP
+        # 2. ACTION CALL:
+        self._send_goal_future = self._action_client.send_goal_async(goal_msg, feedback_callback=self.feedback_callback)
+        self._send_goal_future.add_done_callback(self.goal_response_callback)
+
+    def goal_response_callback(self, future):
+        goal_handle = future.result()
+        if not goal_handle.accepted:
+            self.get_logger().info('Goal rejected :(')
+            return
+        self.get_logger().info('Goal accepted :)')
+        self._get_result_future = goal_handle.get_result_async()
+        self._get_result_future.add_done_callback(self.get_result_callback)
+    
+    def get_result_callback(self, future):
+        global RES
+        # 1. Assign RESULT variable:
+        result = future.result().result
+        RES = result.result
+        # 2. Print RESULT:
+        print ("MoveG ACTION CALL finished.")
+
+    def feedback_callback(self, feedback_msg):
+        # 1. Assign FEEDBACK variable:
+        feedback = feedback_msg.feedback
+        # NO FEEDBACK NEEDED IN MoveG ACTION CALL.
+
 class PickPlaceActionServer(Node):
     
         def __init__(self):
@@ -219,6 +260,7 @@ class PickPlaceActionServer(Node):
             self.XYZWclient = MoveXYZWclient()
             self.attacher_control = AttacherClient()
             self.detacher_control = DetacherClient()
+            self.Gclient = MoveGclient()
     
         def execute_callback(self, goal_handle):
             global RES
@@ -231,11 +273,23 @@ class PickPlaceActionServer(Node):
             start_position = numpy.array([goal.start_position_x, goal.start_position_y, goal.start_position_z])
             end_position = numpy.array([goal.end_position_x, goal.end_position_y, goal.end_position_z])
 
+            # Open the gripper
+            self.Gclient.send_goal(0.04)
+            # Update feedback
+            feedback.stage = "Opening the gripper"
+            goal_handle.publish_feedback(feedback)
+            # Wait for the gripper to open
+            while rclpy.ok():
+                        rclpy.spin_once(self.Gclient)
+                        if (RES != "null"):
+                            break
+            RES = "null"
+
             # Move the robot to the start position above the object
-            R_base_to_EE = Rotation.from_euler('ZYX', [90, 0, 90], degrees=True) # Desired orientation of the end effector
+            R_base_to_EE = Rotation.from_euler('ZYX', [0, 90, 0], degrees=True) # Desired orientation of the end effector
             R_base_to_tool = R_base_to_EE * R_tool_to_EE.inv()  # Compute orientation of tool so that the end effector has the desired orientation
             yaw, pitch, roll = R_base_to_tool.as_euler('ZYX', degrees=True) # Convert orientation to Euler angles
-            self.XYZWclient.send_goal(start_position[0] - HAND_TO_EE, start_position[1], start_position[2] + EE_TO_BOX, yaw, pitch, roll, 1.0) # Move the robot to the desired position and orientation
+            self.XYZWclient.send_goal(start_position[0], start_position[1], start_position[2] + EE_TO_BOX + HAND_TO_EE, yaw, pitch, roll, 1.0) # Move the robot to the desired position and orientation
             # Update feedback 
             feedback.stage = "Moving robot above the object"
             goal_handle.publish_feedback(feedback)
@@ -279,7 +333,7 @@ class PickPlaceActionServer(Node):
             RES = "null"
 
             # Move the robot to the new position
-            self.XYZclient.send_goal(end_position[0] - HAND_TO_EE, end_position[1], end_position[2] + EE_TO_BOX + 0.1, 1.0)
+            self.XYZclient.send_goal(end_position[0], end_position[1], end_position[2] + EE_TO_BOX + HAND_TO_EE, 1.0)
             # Update feedback
             feedback.stage = "Moving robot to the new position"
             goal_handle.publish_feedback(feedback)

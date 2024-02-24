@@ -10,16 +10,17 @@ from rclpy.action import ActionClient
 from ros2_data.action import MoveXYZ
 from ros2_data.action import MoveL
 from ros2_data.action import MoveXYZW
+from ros2_data.action import MoveG
 from gazebo_msgs.srv import SpawnEntity
 from linkattacher_msgs.srv import AttachLink, DetachLink
 
 # Global variables:
 RES = "null"
-HAND_TO_EE = 0.17047
+HAND_TO_EE = 0.103
 EE_TO_BOX = 0.15
-R_tool_to_EE = Rotation.from_euler('ZYX', [45, 0, 0], degrees=True)
-robot_model = "irb120"
-ee_link = "EE_egp64"
+R_tool_to_EE = Rotation.from_euler('XYZ', [90, 45, 90], degrees=True)
+robot_model = "panda"
+ee_link = "end_effector_frame"
 
 # Nodes
 spawn_object = None
@@ -233,6 +234,48 @@ class DetacherClient(Node):
         # 2. SERVICE CALL:
         self.future = self.client.call_async(self.req)
 
+# Class to open and close the gripper:
+class MoveGclient(Node):
+    
+    def __init__(self):
+        # 1. Initialise node:
+        super().__init__('MoveG_client')
+        self._action_client = ActionClient(self, MoveG, 'MoveG')
+        # 2. Wait for MoveG server to be available:
+        print ("Waiting for MoveG action server to be available...")
+        self._action_client.wait_for_server()
+        print ("MoveG ACTION SERVER detected.")
+    
+    def send_goal(self, GP):
+        # 1. Assign variables:
+        goal_msg = MoveG.Goal()
+        goal_msg.goal = GP
+        # 2. ACTION CALL:
+        self._send_goal_future = self._action_client.send_goal_async(goal_msg, feedback_callback=self.feedback_callback)
+        self._send_goal_future.add_done_callback(self.goal_response_callback)
+
+    def goal_response_callback(self, future):
+        goal_handle = future.result()
+        if not goal_handle.accepted:
+            self.get_logger().info('Goal rejected :(')
+            return
+        self.get_logger().info('Goal accepted :)')
+        self._get_result_future = goal_handle.get_result_async()
+        self._get_result_future.add_done_callback(self.get_result_callback)
+    
+    def get_result_callback(self, future):
+        global RES
+        # 1. Assign RESULT variable:
+        result = future.result().result
+        RES = result.result
+        # 2. Print RESULT:
+        print ("MoveG ACTION CALL finished.")
+
+    def feedback_callback(self, feedback_msg):
+        # 1. Assign FEEDBACK variable:
+        feedback = feedback_msg.feedback
+        # NO FEEDBACK NEEDED IN MoveG ACTION CALL.
+
 # Function to move object from one position to another:
 def move_object(start_position, goal_position, object, object_link):
     global RES
@@ -241,11 +284,20 @@ def move_object(start_position, goal_position, object, object_link):
     x1, y1, z1 = start_position
     x2, y2, z2 = goal_position
 
+    # Open the gripper
+    gripper_control.send_goal(0.04)
+    # Wait for the gripper to open
+    while rclpy.ok():
+                rclpy.spin_once(gripper_control)
+                if (RES != "null"):
+                    break
+    RES = "null"
+
     # Move the robot above the box
-    R_base_to_EE = Rotation.from_euler('ZYX', [90, 0, 90], degrees=True) # Desired orientation of the end effector
+    R_base_to_EE = Rotation.from_euler('ZYX', [0, 90, 0], degrees=True) # Desired orientation of the end effector
     R_base_to_tool = R_base_to_EE * R_tool_to_EE.inv()  # Compute orientation of tool so that the end effector has the desired orientation
     yaw, pitch, roll = R_base_to_tool.as_euler('ZYX', degrees=True) # Convert orientation to Euler angles
-    XYZWclient.send_goal(x1 - HAND_TO_EE, y1, z1 + EE_TO_BOX, yaw, pitch, roll, 1.0) # Move the robot to the desired position and orientation
+    XYZWclient.send_goal(x1, y1, z1 + EE_TO_BOX + HAND_TO_EE, yaw, pitch, roll, 1.0) # Move the robot to the desired position and orientation
     # Wait for the robot to move
     while rclpy.ok():
                 rclpy.spin_once(XYZWclient)
@@ -275,7 +327,7 @@ def move_object(start_position, goal_position, object, object_link):
                     break
     RES = "null"
     # Move the robot to the new position
-    XYZclient.send_goal(x2 - HAND_TO_EE, y2, z2 + EE_TO_BOX + 0.1, 1.0)
+    XYZclient.send_goal(x2, y2, z2 + EE_TO_BOX + HAND_TO_EE, 1.0)
     # Wait for the robot to move
     while rclpy.ok():
                 rclpy.spin_once(XYZclient)
@@ -307,7 +359,7 @@ def move_object(start_position, goal_position, object, object_link):
 
 # Main function:
 def main(args=None):
-    global RES, spawn_object, XYZclient, Lclient, XYZWclient, attacher_control, detacher_control
+    global RES, spawn_object, XYZclient, Lclient, XYZWclient, attacher_control, detacher_control, gripper_control
 
     rclpy.init(args=args)
 
@@ -317,6 +369,7 @@ def main(args=None):
     XYZWclient = MoveXYZWclient()
     attacher_control = AttacherClient()
     detacher_control = DetacherClient()
+    gripper_control = MoveGclient()
 
     # Position of the box
     box_position = [0.6, -0.3, 0.75]

@@ -7,10 +7,10 @@ import random
 from scipy.spatial.transform import Rotation
 
 # Limits of the table
-TABLE_X_MIN = 0.5
-TABLE_X_MAX = 0.9
+TABLE_X_MIN = 0.3
+TABLE_X_MAX = 0.7
 TABLE_Y_MIN = -0.45
-TABLE_Y_MAX = 0.45
+TABLE_Y_MAX = -0.05
 
 # Class to spawn objects into the Gazebo world
 class SpawnObject:

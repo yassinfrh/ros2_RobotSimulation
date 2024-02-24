@@ -12,7 +12,7 @@ from scipy.spatial.transform import Rotation
 OBJECT_DISTANCE = 0.57
 
 # Camera extrinsic parameters
-CAMERA_POSITION = np.array([0.7, 0.0, 1.35])
+CAMERA_POSITION = np.array([0.5, 0.0, 1.35])
 CAMERA_ORIENTATION = Rotation.from_euler('XYZ', [-180, 0.0, 90.0], degrees=True)
 
 # Camera intrinsic parameters
