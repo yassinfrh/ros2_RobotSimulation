@@ -5,8 +5,9 @@ import numpy as np
 import rclpy
 from rclpy.action import ActionClient
 from pick_place_interface.action import PickPlace
-
 from pick_place_interface.msg import DetectedObject, ListDetected
+from gazebo_msgs import DeleteEntity
+from std_srvs.srv import Empty
 
 RES = "null"
 
@@ -51,6 +52,51 @@ class PickPlaceActionClient:
         RES = result
         self.node.get_logger().info('Result: {0}'.format(result))
 
+# Service client to spawn the objects
+class SpawnObjectClient:
+    def __init__(self):
+        self.node = rclpy.create_node('entity_spawner')
+        self.client = self.node.create_client(Empty, '/spawn_objects')
+
+    def send_request(self):
+        request = Empty.Request()
+        while not self.client.wait_for_service(timeout_sec=1.0):
+            self.node.get_logger().info('service not available, waiting again...')
+        self.future = self.client.call_async(request)
+        self.future.add_done_callback(self._spawn_objects_response_callback)
+
+    def _spawn_objects_response_callback(self, future):
+        global RES
+        response = future.result()
+        if response is not None:
+            self.node.get_logger().info('Objects spawned')
+            RES = "done"
+        else:
+            self.node.get_logger().info('Service call failed')
+
+# Service client to delete the objects
+class DeleteEntityClient:
+    def __init__(self):
+        self.node = rclpy.create_node('delete_entity_client')
+        self.client = self.node.create_client(DeleteEntity, 'delete_entity')
+
+    def send_request(self, entity_name):
+        request = DeleteEntity.Request()
+        request.name = entity_name
+        while not self.client.wait_for_service(timeout_sec=1.0):
+            self.node.get_logger().info('service not available, waiting again...')
+        self.future = self.client.call_async(request)
+        self.future.add_done_callback(self._delete_entity_response_callback)
+
+    def _delete_entity_response_callback(self, future):
+        global RES
+        response = future.result()
+        if response is not None:
+            self.node.get_logger().info('Entity deleted')
+            RES = "done"
+        else:
+            self.node.get_logger().info('Service call failed')
+
 # Enivonment class
 class PickPlaceEnv(gymnasium.Env):
     def __init__(self):
@@ -72,6 +118,12 @@ class PickPlaceEnv(gymnasium.Env):
         # Subscriber to the detected objects
         self.detected_objects = None
         self.detected_objects_sub = self.node.create_subscription(ListDetected, 'detected_objects', self.detected_objects_callback)
+
+        # Service client to spawn the objects
+        self.spawn_object_client = SpawnObjectClient()
+
+        # Service client to delete the objects
+        self.delete_entity_client = DeleteEntityClient()
 
     def step(self, action):
         global RES
@@ -98,13 +150,37 @@ class PickPlaceEnv(gymnasium.Env):
         return observation, reward, done, {}
 
     def reset(self):
-        pass
+        # Delete the objects
+        self.delete_entity_client.send_request("red_box")
+        self.delete_entity_client.send_request("blue_box")
+        self.delete_entity_client.send_request("green_box")
+        # Wait for the service to finish
+        while rclpy.ok() and RES == "null":
+            rclpy.spin_once(self.node)
+        RES = "null"
+
+        # Clear the detected objects
+        self.detected_objects = None
+        
+        # Spawn the objects in random positions
+        self.spawn_object_client.send_request()
+        # Wait for the service to finish
+        while rclpy.ok() and RES == "null":
+            rclpy.spin_once(self.node)
+        RES = "null"
+
+        return self.get_observation()
 
     def render(self, mode='human'):
         pass
 
     def close(self):
-        pass
+        # Destroy all the nodes
+        self.action_client.node.destroy_node()
+        self.delete_entity_client.node.destroy_node()
+        self.spawn_object_client.node.destroy_node()
+        self.node.destroy_node()
+
 
     def detected_objects_callback(self, msg):
         self.detected_objects = msg.list

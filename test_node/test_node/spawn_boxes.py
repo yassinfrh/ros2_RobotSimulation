@@ -2,6 +2,7 @@ import os
 import xacro
 from ament_index_python.packages import get_package_share_directory
 from gazebo_msgs.srv import SpawnEntity
+from std_srvs.srv import Empty
 import rclpy
 import random
 from scipy.spatial.transform import Rotation
@@ -27,6 +28,9 @@ class SpawnObject:
         if not self.client.service_is_ready():
             self.client.wait_for_service()
             self.node.get_logger().info('...connected!')
+
+        self.node.get_logger().info('Creating Service server for `/spawn_objects`')
+        self.server = self.node.create_service(Empty, '/spawn_objects', self.spawn_objects_callback)
 
         self.red_request = SpawnEntity.Request()
         self.red_request.name = 'red_box'
@@ -58,8 +62,7 @@ class SpawnObject:
         # Convert the rotation to quaternion
         return rotation.as_quat()
 
-
-    def spawn_objects(self):
+    def spawn_objects_callback(self, request, response):
         # Compute random position for the object
         self.red_request.initial_pose.position.x = random.uniform(TABLE_X_MIN, TABLE_X_MAX)
         self.red_request.initial_pose.position.y = random.uniform(TABLE_Y_MIN, TABLE_Y_MAX)
@@ -99,12 +102,12 @@ class SpawnObject:
         self.client.call_async(self.green_request)
         self.node.get_logger().info('Spawning blue box...')
         self.client.call_async(self.blue_request)
+        return response
+
 
 
 def main(args=None):
     spawn_object = SpawnObject()
-    spawn_object.spawn_objects()
-
     rclpy.spin(spawn_object.node)
 
     spawn_object.node.destroy_node()
