@@ -8,6 +8,8 @@ from sensor_msgs.msg import Image
 from cv_bridge import CvBridge
 from scipy.spatial.transform import Rotation
 
+from pick_place_interface.msg import DetectedObject, ListDetected
+
 # Object surface Z distance from the camera
 OBJECT_DISTANCE = 0.57
 
@@ -28,6 +30,13 @@ class OrientationNode(Node):
             10
         )
 
+        # Publisher for the detected objects positions 
+        self.publisher = self.create_publisher(ListDetected, '/detected_objects', 10)
+
+        # Message for the detected objects positions
+        self.detected_objects_msg = ListDetected()
+                     
+        # Bridge to convert ROS Image messages to OpenCV images
         self.bridge = CvBridge()
 
     def image_callback(self, msg):
@@ -42,6 +51,10 @@ class OrientationNode(Node):
         self.process_image(cv_image)
 
     def process_image(self, img):
+
+        # Reset the detected objects array
+        self.detected_objects_msg.list.clear()
+
         # Was the image there?
         if img is None:
             self.get_logger().info('Error: Image not found')
@@ -67,20 +80,45 @@ class OrientationNode(Node):
         # Find position of the objects
         if len(red_contours) > 0:
             red_contour = max(red_contours, key=cv.contourArea)
-            red_position = self.find_position(red_contour, img)
+            # Create a DetectedObject message
+            red_object = DetectedObject()
+            red_object.name = 'red_box'
+            red_object.x, red_object.y, red_object.z = self.find_position(red_contour, img)
+            # Append the message to the list of detected objects if the position is not None and if red is not already in the list
+            if red_object.z is not None:
+                self.detected_objects_msg.list.append(red_object)
+            
+            
+
 
         if len(green_contours) > 0:
             green_contour = max(green_contours, key=cv.contourArea)
-            green_position = self.find_position(green_contour, img)
+            # Create a DetectedObject message
+            green_object = DetectedObject()
+            green_object.name = 'green_box'
+            green_object.x, green_object.y, green_object.z = self.find_position(green_contour, img)
+            # Append the message to the list of detected objects if the position is not None and if green is not already in the list
+            if green_object.z is not None:
+                self.detected_objects_msg.list.append(green_object)
 
 
         if len(blue_contours) > 0:
             blue_contour = max(blue_contours, key=cv.contourArea)
-            blue_position = self.find_position(blue_contour, img)
+            # Create a DetectedObject message
+            blue_object = DetectedObject()
+            blue_object.name = 'blue_box'
+            blue_object.x, blue_object.y, blue_object.z = self.find_position(blue_contour, img)
+            # Append the message to the list of detected objects if the position is not None and if blue is not already in the list
+            if blue_object.z is not None:
+                self.detected_objects_msg.list.append(blue_object)
+            
 
         # Show the image
         cv.imshow('Image', img)
         cv.waitKey(1)
+
+        # Publish the detected objects positions
+        self.publisher.publish(self.detected_objects_msg)
 
     def find_position(self, contour, img):
         # Compute the center of the contour
@@ -102,6 +140,9 @@ class OrientationNode(Node):
         camera_orientation = CAMERA_ORIENTATION.as_matrix()
         object_position = np.array([x, y, z])
         object_position_world = camera_position + np.dot(camera_orientation, object_position)
+
+        # Round the position to 3 decimal places
+        object_position_world = np.round(object_position_world, 3)
 
         # Write the position on the image above the object
         font = cv.FONT_HERSHEY_SIMPLEX
