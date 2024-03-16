@@ -83,9 +83,11 @@ class OrientationNode(Node):
             # Create a DetectedObject message
             red_object = DetectedObject()
             red_object.name = 'red_box'
-            red_object.x, red_object.y, red_object.z = self.find_position(red_contour, img)
-            # Append the message to the list of detected objects if the position is not None and if red is not already in the list
-            if red_object.z is not None:
+            # Check if find_position returns a valid position
+            position = self.find_position(red_contour, img)
+            if position is not None:
+                red_object.x, red_object.y, red_object.z = position
+                # Append the message to the list of detected objects
                 self.detected_objects_msg.list.append(red_object)
             
             
@@ -96,9 +98,11 @@ class OrientationNode(Node):
             # Create a DetectedObject message
             green_object = DetectedObject()
             green_object.name = 'green_box'
-            green_object.x, green_object.y, green_object.z = self.find_position(green_contour, img)
-            # Append the message to the list of detected objects if the position is not None and if green is not already in the list
-            if green_object.z is not None:
+            # Check if find_position returns a valid position
+            position = self.find_position(green_contour, img)
+            if position is not None:
+                green_object.x, green_object.y, green_object.z = position
+                # Append the message to the list of detected objects
                 self.detected_objects_msg.list.append(green_object)
 
 
@@ -107,9 +111,11 @@ class OrientationNode(Node):
             # Create a DetectedObject message
             blue_object = DetectedObject()
             blue_object.name = 'blue_box'
-            blue_object.x, blue_object.y, blue_object.z = self.find_position(blue_contour, img)
-            # Append the message to the list of detected objects if the position is not None and if blue is not already in the list
-            if blue_object.z is not None:
+            # Check if find_position returns a valid position
+            position = self.find_position(blue_contour, img)
+            if position is not None:
+                blue_object.x, blue_object.y, blue_object.z = position
+                # Append the message to the list of detected objects
                 self.detected_objects_msg.list.append(blue_object)
             
 

@@ -14,6 +14,7 @@
   <depend>linkattacher_msgs</depend>
   <depend>sensor_msgs</depend>
   <depend>pick_place_interface</depend>
+  <depend>gazebo_msgs</depend>
 
   <test_depend>ament_copyright</test_depend>
   <test_depend>ament_flake8</test_depend>
