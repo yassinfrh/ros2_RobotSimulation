@@ -11,7 +11,7 @@ from scipy.spatial.transform import Rotation
 from pick_place_interface.msg import DetectedObject, ListDetected
 
 # Object surface Z distance from the camera
-OBJECT_DISTANCE = 0.57
+OBJECT_DISTANCE = 0.61
 
 # Camera extrinsic parameters
 CAMERA_POSITION = np.array([0.5, 0.0, 1.35])

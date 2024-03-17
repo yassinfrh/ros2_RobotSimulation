@@ -372,7 +372,7 @@ def main(args=None):
     gripper_control = MoveGclient()
 
     # Position of the box
-    box_position = [0.6, -0.3, 0.75]
+    box_position = [0.6, -0.3, 0.74]
 
 
     # Spawn the box
@@ -381,7 +381,7 @@ def main(args=None):
     rclpy.spin_once(spawn_object)
 
     # Goal position
-    goal_position = [0.6, 0.3, 0.75]
+    goal_position = [0.6, 0.3, 0.74]
     
     # Move the object from one position to another
     move_object(box_position, goal_position, 'red_box', 'red_box')

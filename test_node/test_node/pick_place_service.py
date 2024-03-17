@@ -13,7 +13,8 @@ from pick_place_interface.action import PickPlace
 
 # Global variables:
 RES = "null"
-HAND_TO_EE = 0.103
+# HAND_TO_EE = 0.103 ---> real value
+HAND_TO_EE = 0.108
 EE_TO_BOX = 0.15
 R_tool_to_EE = Rotation.from_euler('XYZ', [90, 45, 90], degrees=True)
 robot_model = "panda"
@@ -321,7 +322,7 @@ class PickPlaceActionServer(Node):
             rclpy.spin_once(self.attacher_control)
 
             # Move the robot up
-            self.Lclient.send_goal(0.0, 0.0, EE_TO_BOX, 1.0)
+            self.Lclient.send_goal(0.0, 0.0, EE_TO_BOX + 0.05, 1.0)
             # Update feedback
             feedback.stage = "Moving robot up"
             goal_handle.publish_feedback(feedback)
@@ -365,7 +366,7 @@ class PickPlaceActionServer(Node):
             rclpy.spin_once(self.detacher_control)
 
             # Move the robot up
-            self.Lclient.send_goal(0.0, 0.0, EE_TO_BOX, 1.0)
+            self.Lclient.send_goal(0.0, 0.0, EE_TO_BOX + 0.05, 1.0)
             # Update feedback
             feedback.stage = "Moving robot up"
             goal_handle.publish_feedback(feedback)

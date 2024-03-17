@@ -35,17 +35,17 @@ class SpawnObject:
         self.red_request = SpawnEntity.Request()
         self.red_request.name = 'red_box'
         self.red_request.xml = self.get_urdf('red_box.urdf')
-        self.red_request.initial_pose.position.z = 0.75
+        self.red_request.initial_pose.position.z = 0.73
 
         self.green_request = SpawnEntity.Request()
         self.green_request.name = 'green_box'
         self.green_request.xml = self.get_urdf('green_box.urdf')
-        self.green_request.initial_pose.position.z = 0.75
+        self.green_request.initial_pose.position.z = 0.73
 
         self.blue_request = SpawnEntity.Request()
         self.blue_request.name = 'blue_box'
         self.blue_request.xml = self.get_urdf('blue_box.urdf')
-        self.blue_request.initial_pose.position.z = 0.75
+        self.blue_request.initial_pose.position.z = 0.73
 
     def get_urdf(self, urdf_file):
         urdf_file_path = os.path.join(get_package_share_directory('ros2_grasping'), 'urdf', urdf_file)

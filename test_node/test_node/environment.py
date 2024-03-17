@@ -113,8 +113,8 @@ class PickPlaceEnv(gymnasium.Env, Node):
         super().__init__('pick_place_env')
 
         # Define the lower and upper bounds for the action space
-        low = np.array([0, 0, 0, 0.3, -0.45, 0.78])
-        high = np.array([1, 1, 1, 0.7, 0.45, 0.8])
+        low = np.array([0, 0, 0, 0.3, -0.45, 0.77])
+        high = np.array([1, 1, 1, 0.7, 0.45, 0.77])
         # Action space: object name and 3D goal position
         self.action_space = spaces.Box(low=low, high=high, shape=(6,), dtype=np.float32)
 
@@ -174,7 +174,17 @@ class PickPlaceEnv(gymnasium.Env, Node):
 
         # Delete the objects
         self.delete_entity_client.send_request("red_box")
+        # Wait for the service to finish
+        while rclpy.ok() and RES == "null":
+            rclpy.spin_once(self.delete_entity_client)
+        RES = "null"
+
         self.delete_entity_client.send_request("blue_box")
+        # Wait for the service to finish
+        while rclpy.ok() and RES == "null":
+            rclpy.spin_once(self.delete_entity_client)
+        RES = "null"
+
         self.delete_entity_client.send_request("green_box")
         # Wait for the service to finish
         while rclpy.ok() and RES == "null":
