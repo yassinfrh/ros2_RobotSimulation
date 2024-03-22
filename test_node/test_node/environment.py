@@ -1,6 +1,7 @@
 import gymnasium
 from gymnasium import spaces
 import numpy as np
+import shutil
 
 import rclpy
 from rclpy.node import Node
@@ -10,23 +11,22 @@ from pick_place_interface.msg import DetectedObject, ListDetected
 from gazebo_msgs.srv import DeleteEntity
 from std_srvs.srv import Empty
 
-from gymnasium.wrappers import TimeLimit
-from imitation.data import rollout
-from imitation.data.wrappers import RolloutInfoWrapper
 from stable_baselines3.common.vec_env import DummyVecEnv
-from stable_baselines3 import PPO
-from stable_baselines3.ppo import MlpPolicy
+from imitation.data.wrappers import RolloutInfoWrapper
 from stable_baselines3.common.evaluation import evaluate_policy
+
+from imitation.algorithms import bc
+from imitation.algorithms.dagger import DAggerTrainer
 
 RES = "null"
 
 # Final positions of the objects
-RED_BOX_POSITION = [0.4, -0.3, 0.78]
-BLUE_BOX_POSITION = [0.5, 0.3, 0.78]
-GREEN_BOX_POSITION = [0.6, -0.3, 0.78]
+RED_BOX_POSITION = np.array([0.4, 0.3, 0.74])
+GREEN_BOX_POSITION = np.array([0.5, 0.3, 0.74])
+BLUE_BOX_POSITION = np.array([0.6, 0.3, 0.74])
 
 # Threshold for the done condition
-THRESHOLD = 0.01
+THRESHOLD = 0.05
 
 # Action client for the pick_place action
 class PickPlaceActionClient(Node):
@@ -107,14 +107,14 @@ class DeleteEntityClient(Node):
             self.get_logger().info('Service call failed')
 
 # Enivonment class
-class PickPlaceEnv(gymnasium.Env, Node):
+class PickPlaceEnv(gymnasium.Env):
 
     def __init__(self):
-        super().__init__('pick_place_env')
+        self.node = Node('pick_place_env')
 
         # Define the lower and upper bounds for the action space
-        low = np.array([0, 0, 0, 0.3, -0.45, 0.77])
-        high = np.array([1, 1, 1, 0.7, 0.45, 0.77])
+        low = np.array([0, 0, 0, 0.3, -0.45, 0.74])
+        high = np.array([1, 1, 1, 0.7, 0.45, 0.74])
         # Action space: object name and 3D goal position
         self.action_space = spaces.Box(low=low, high=high, shape=(6,), dtype=np.float32)
 
@@ -126,7 +126,7 @@ class PickPlaceEnv(gymnasium.Env, Node):
 
         # Subscriber to the detected objects
         self.detected_objects = None
-        self.detected_objects_sub = self.create_subscription(ListDetected, 'detected_objects', self.detected_objects_callback, 10)
+        self.detected_objects_sub = self.node.create_subscription(ListDetected, 'detected_objects', self.detected_objects_callback, 10)
 
         # Service client to spawn the objects
         self.spawn_object_client = SpawnObjectClient()
@@ -139,21 +139,26 @@ class PickPlaceEnv(gymnasium.Env, Node):
 
         self.detected_objects = None
 
-        # Spin until the detected objects are at least 3
-        while self.detected_objects is None or len(self.detected_objects) < 3:
-            rclpy.spin_once(self)
+        rclpy.spin_once(self.node)
+
+        print("Action: ", action)
 
         # Send action to the action server
         object_index = np.argmax(action[:3])
-        object_name = ["red_box", "blue_box", "green_box"][object_index]
+        object_name = ["red_box", "green_box", "blue_box"][object_index]
+        # Check if object_name is in the detected objects
+        if object_name not in [obj.name for obj in self.detected_objects]:
+            return self.get_observation(), -100, True, False, self.get_info()
         goal_position = np.round(np.array(action[3:]).astype(float), 3)
         start_position = np.array(self.get_start_position(object_name)).astype(float)
-        print(f"Moving {object_name} from {start_position} to {goal_position}")
         self.action_client.send_goal(object_name, start_position, goal_position)
         # Wait for the action server to finish
         while rclpy.ok() and RES == "null":
             rclpy.spin_once(self.action_client)
         RES = "null"
+
+        # Spin to update the detected objects
+        rclpy.spin_once(self.node)
         
         # Update the observation
         observation = self.get_observation()
@@ -169,8 +174,10 @@ class PickPlaceEnv(gymnasium.Env, Node):
 
         return observation, reward, done, False, info
 
-    def reset(self, seed=None):
+    def reset(self, seed=None, options=None):
         global RES
+
+        super().reset(seed=seed)
 
         # Delete the objects
         self.delete_entity_client.send_request("red_box")
@@ -203,7 +210,7 @@ class PickPlaceEnv(gymnasium.Env, Node):
 
         # Wait for the objects to be detected (3 elements in the list of detected objects)
         while self.detected_objects is None or len(self.detected_objects) < 3:
-            rclpy.spin_once(self)
+            rclpy.spin_once(self.node)
 
         return self.get_observation(), self.get_info()
 
@@ -215,7 +222,7 @@ class PickPlaceEnv(gymnasium.Env, Node):
         self.action_client.destroy_node()
         self.delete_entity_client.destroy_node()
         self.spawn_object_client.destroy_node()
-        self.destroy_node()
+        self.node.destroy_node()
 
 
     def detected_objects_callback(self, msg):
@@ -233,28 +240,41 @@ class PickPlaceEnv(gymnasium.Env, Node):
     
     # Function to get the observation
     def get_observation(self):
+        # Spin to update the detected objects
+        rclpy.spin_once(self.node)
+
         observation = np.zeros(18)
         for obj in self.detected_objects:
             if obj.name == "red_box":
                 observation[:3] = [1, 0, 0]
                 observation[3:6] = [obj.x, obj.y, obj.z]
-            elif obj.name == "blue_box":
-                observation[6:9] = [0, 0, 1]
-                observation[9:12] = [obj.x, obj.y, obj.z]
             elif obj.name == "green_box":
-                observation[12:15] = [0, 1, 0]
+                observation[6:9] = [0, 1, 0]
+                observation[9:12] = [obj.x, obj.y, obj.z]
+            elif obj.name == "blue_box":
+                observation[12:15] = [0, 0, 1]
                 observation[15:] = [obj.x, obj.y, obj.z]
+
+        # Convert all the numbers to float
+        observation = [float(i) for i in observation]
+
         return observation
             
     
     # Function to get the reward
     def get_reward(self, info):
+        # Check that all the distances are in the info
+        if "red_box_distance" not in info or "green_box_distance" not in info or "blue_box_distance" not in info:
+            return -100
         # Reward is the negative sum of the distances to the goal positions
         reward = info["red_box_distance"] + info["blue_box_distance"] + info["green_box_distance"]
-        return -reward
+        return -reward**2
     
     # Function to compute the done condition
     def is_done(self, info):
+        # Check that all the distances are in the info
+        if "red_box_distance" not in info or "green_box_distance" not in info or "blue_box_distance" not in info:
+            return False
         # Done if all the distances are below the threshold
         return info["red_box_distance"] < THRESHOLD and info["blue_box_distance"] < THRESHOLD and info["green_box_distance"] < THRESHOLD
     
@@ -263,43 +283,114 @@ class PickPlaceEnv(gymnasium.Env, Node):
         info = {}
         for obj in self.detected_objects:
             if obj.name == "red_box":
-                info["red_box_distance"] = np.linalg.norm(np.array([obj.x, obj.y, obj.z]) - np.array(RED_BOX_POSITION))
-            elif obj.name == "blue_box":
-                info["blue_box_distance"] = np.linalg.norm(np.array([obj.x, obj.y, obj.z]) - np.array(BLUE_BOX_POSITION))
+                info["red_box_distance"] = np.linalg.norm(np.array([obj.x, obj.y, obj.z]) - RED_BOX_POSITION)
             elif obj.name == "green_box":
-                info["green_box_distance"] = np.linalg.norm(np.array([obj.x, obj.y, obj.z]) - np.array(GREEN_BOX_POSITION))
+                info["green_box_distance"] = np.linalg.norm(np.array([obj.x, obj.y, obj.z]) - GREEN_BOX_POSITION)
+            elif obj.name == "blue_box":
+                info["blue_box_distance"] = np.linalg.norm(np.array([obj.x, obj.y, obj.z]) - BLUE_BOX_POSITION)
         return info
     
 # Main function
 def main():
     rclpy.init()
 
+    rng = np.random.default_rng(0)
+
+    # Delete scratch directory if it exists
+    shutil.rmtree("src/ros2_RobotSimulation/test_node/test_node/scratch", ignore_errors=True)
+
     # Create the environment
     env = PickPlaceEnv()
-    env = TimeLimit(env, max_episode_steps=50)
+    env = DummyVecEnv([lambda: RolloutInfoWrapper(env)])
 
-    # Create the expert
-    expert = PPO(
-        policy=MlpPolicy,
-        env=env,
-        seed=0,
-        batch_size=64,
-        ent_coef=0.0,
-        learning_rate=3e-4,
-        n_epochs=10,
-        n_steps=64,
+    # Create BC trainer
+    bc_trainer = bc.BC(
+        observation_space=env.observation_space,
+        action_space=env.action_space,
+        rng=rng,
+        batch_size=3,
     )
 
-    # Reward before training
-    reward, _ = evaluate_policy(expert, env, 10)
-    print(f"Reward before training: {reward}")
+    # Create the DAgger trainer
+    dagger_trainer = DAggerTrainer(
+        venv=env,
+        scratch_dir="src/ros2_RobotSimulation/test_node/test_node/scratch",
+        rng=rng,
+        bc_trainer=bc_trainer,
+    )
 
-    # Train the expert
-    expert.learn(20)
+    # For 10 iterations
+    for i in range(10):
+        # Create trajectory collector
+        collector = dagger_trainer.create_trajectory_collector()
 
-    # Reward after training
-    reward, _ = evaluate_policy(expert, expert.get_env(), 10)
-    print(f"Reward after training: {reward}")
+        # Reset the environment
+        obs = collector.reset()
+
+        print(f"Iteration {i}")
+
+        # While the environment is not done
+        done = False
+        while not done:
+
+            obs = obs[0]
+        
+            # Print on screen the observation
+            print("Observation: ", obs)
+
+            '''# Query the user for the object to pick
+            object_name = input("Enter the object to pick (red_box, green_box, blue_box): ")
+            # Query the user for the goal position
+            goal_position = input("Enter the goal position (x, y, z): ")
+            goal_position = np.array(goal_position.split(",")).astype(float)
+
+            # Convert the object name to one-hot encoding
+            object_index = ["red_box", "green_box", "blue_box"].index(object_name)
+            object_one_hot = np.zeros(3)
+            object_one_hot[object_index] = 1
+            object_one_hot = object_one_hot.astype(float)'''
+
+            # If red object is not in the correct position
+            if np.linalg.norm(obs[3:6] - RED_BOX_POSITION) > THRESHOLD:
+                # Move red object to the correct position
+                object_one_hot = np.array([1, 0, 0])
+                goal_position = RED_BOX_POSITION
+            # If green object is not in the correct position
+            elif np.linalg.norm(obs[9:12] - GREEN_BOX_POSITION) > THRESHOLD:
+                # Move green object to the correct position
+                object_one_hot = np.array([0, 1, 0])
+                goal_position = GREEN_BOX_POSITION
+            # If blue object is not in the correct position
+            elif np.linalg.norm(obs[15:] - BLUE_BOX_POSITION) > THRESHOLD:
+                # Move blue object to the correct position
+                object_one_hot = np.array([0, 0, 1])
+                goal_position = BLUE_BOX_POSITION
+            # If any object disappeared from the scene
+            elif obs[0] == 0.0 or obs[7] == 0.0 or obs[14] == 0.0:
+                # Reset the environment
+                obs = collector.reset()
+                continue
+
+            # Concatenate the one-hot encoding with the goal position
+            action = np.concatenate((object_one_hot, goal_position))
+
+            # Put action in an array
+            action = np.array([action])
+
+            print("Beta: ", collector.beta)
+
+            # Step the environment
+            collector.step_async(action)
+
+            # Wait for the environment to finish
+            obs, rew, done, info = collector.step_wait()
+
+        # Train BC
+        dagger_trainer.extend_and_update()
+
+    # Evaluate the policy
+    mean_reward, _ = evaluate_policy(dagger_trainer.policy, env, n_eval_episodes=10)
+    print(f"Mean reward: {mean_reward}")
 
     # Close the environment
     env.close()

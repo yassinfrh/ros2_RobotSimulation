@@ -9,8 +9,8 @@ from scipy.spatial.transform import Rotation
 
 # Limits of the table
 TABLE_X_MIN = 0.3
-TABLE_X_MAX = 0.7
-TABLE_Y_MIN = -0.45
+TABLE_X_MAX = 0.65
+TABLE_Y_MIN = -0.4
 TABLE_Y_MAX = -0.05
 
 # Class to spawn objects into the Gazebo world
@@ -52,6 +52,7 @@ class SpawnObject:
         xacro_file = xacro.process_file(urdf_file_path)
         return xacro_file.toxml()
     
+    '''
     def random_orientation(self):
         # Compute random angle for the object
         angle = random.uniform(0, 2*3.1415)
@@ -61,15 +62,17 @@ class SpawnObject:
 
         # Convert the rotation to quaternion
         return rotation.as_quat()
+    '''
+    
 
     def spawn_objects_callback(self, request, response):
         # Compute random position for the object
         self.red_request.initial_pose.position.x = random.uniform(TABLE_X_MIN, TABLE_X_MAX)
         self.red_request.initial_pose.position.y = random.uniform(TABLE_Y_MIN, TABLE_Y_MAX)
         # Compute random orientation for the object
-        orientation = self.random_orientation()
+        '''orientation = self.random_orientation()
         self.red_request.initial_pose.orientation.z = orientation[2]
-        self.red_request.initial_pose.orientation.w = orientation[3]
+        self.red_request.initial_pose.orientation.w = orientation[3]'''
 
         # Compute random position for the object (avoiding collisions)
         while True:
@@ -79,9 +82,9 @@ class SpawnObject:
                 break
 
         # Compute random orientation for the object
-        orientation = self.random_orientation()
+        '''orientation = self.random_orientation()
         self.green_request.initial_pose.orientation.z = orientation[2]
-        self.green_request.initial_pose.orientation.w = orientation[3]
+        self.green_request.initial_pose.orientation.w = orientation[3]'''
 
         # Compute random position for the object (avoiding collisions)
         while True:
@@ -91,9 +94,9 @@ class SpawnObject:
                 break
         
         # Compute random orientation for the object
-        orientation = self.random_orientation()
+        '''orientation = self.random_orientation()
         self.blue_request.initial_pose.orientation.z = orientation[2]
-        self.blue_request.initial_pose.orientation.w = orientation[3]
+        self.blue_request.initial_pose.orientation.w = orientation[3]'''
 
         # Spawn the objects
         self.node.get_logger().info('Spawning red box...')
