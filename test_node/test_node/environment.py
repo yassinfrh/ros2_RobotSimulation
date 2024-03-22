@@ -113,8 +113,8 @@ class PickPlaceEnv(gymnasium.Env):
         self.node = Node('pick_place_env')
 
         # Define the lower and upper bounds for the action space
-        low = np.array([0, 0, 0, 0.3, -0.45, 0.74])
-        high = np.array([1, 1, 1, 0.7, 0.45, 0.74])
+        low = np.array([0, 0, 0, 0.3, -0.4, 0.74])
+        high = np.array([1, 1, 1, 0.6, 0.4, 0.74])
         # Action space: object name and 3D goal position
         self.action_space = spaces.Box(low=low, high=high, shape=(6,), dtype=np.float32)
 
@@ -309,6 +309,7 @@ def main():
         action_space=env.action_space,
         rng=rng,
         batch_size=3,
+        device="cpu"
     )
 
     # Create the DAgger trainer
