@@ -16,7 +16,7 @@ from imitation.data.wrappers import RolloutInfoWrapper
 from stable_baselines3.common.evaluation import evaluate_policy
 
 from imitation.algorithms import bc
-from imitation.algorithms.dagger import DAggerTrainer
+from imitation.algorithms.dagger import DAggerTrainer, reconstruct_trainer
 
 RES = "null"
 
@@ -294,104 +294,16 @@ class PickPlaceEnv(gymnasium.Env):
 def main():
     rclpy.init()
 
-    rng = np.random.default_rng(0)
-
-    # Delete scratch directory if it exists
-    shutil.rmtree("src/ros2_RobotSimulation/test_node/test_node/scratch", ignore_errors=True)
-
     # Create the environment
     env = PickPlaceEnv()
     env = DummyVecEnv([lambda: RolloutInfoWrapper(env)])
 
-    # Create BC trainer
-    bc_trainer = bc.BC(
-        observation_space=env.observation_space,
-        action_space=env.action_space,
-        rng=rng,
-        batch_size=3,
-        device="cpu"
-    )
-
-    # Create the DAgger trainer
-    dagger_trainer = DAggerTrainer(
-        venv=env,
-        scratch_dir="src/ros2_RobotSimulation/test_node/test_node/scratch",
-        rng=rng,
-        bc_trainer=bc_trainer,
-    )
-
-    # For 10 iterations
-    for i in range(10):
-        # Create trajectory collector
-        collector = dagger_trainer.create_trajectory_collector()
-
-        # Reset the environment
-        obs = collector.reset()
-
-        print(f"Iteration {i}")
-
-        # While the environment is not done
-        done = False
-        while not done:
-
-            obs = obs[0]
-        
-            # Print on screen the observation
-            print("Observation: ", obs)
-
-            '''# Query the user for the object to pick
-            object_name = input("Enter the object to pick (red_box, green_box, blue_box): ")
-            # Query the user for the goal position
-            goal_position = input("Enter the goal position (x, y, z): ")
-            goal_position = np.array(goal_position.split(",")).astype(float)
-
-            # Convert the object name to one-hot encoding
-            object_index = ["red_box", "green_box", "blue_box"].index(object_name)
-            object_one_hot = np.zeros(3)
-            object_one_hot[object_index] = 1
-            object_one_hot = object_one_hot.astype(float)'''
-
-            # If red object is not in the correct position
-            if np.linalg.norm(obs[3:6] - RED_BOX_POSITION) > THRESHOLD:
-                # Move red object to the correct position
-                object_one_hot = np.array([1, 0, 0])
-                goal_position = RED_BOX_POSITION
-            # If green object is not in the correct position
-            elif np.linalg.norm(obs[9:12] - GREEN_BOX_POSITION) > THRESHOLD:
-                # Move green object to the correct position
-                object_one_hot = np.array([0, 1, 0])
-                goal_position = GREEN_BOX_POSITION
-            # If blue object is not in the correct position
-            elif np.linalg.norm(obs[15:] - BLUE_BOX_POSITION) > THRESHOLD:
-                # Move blue object to the correct position
-                object_one_hot = np.array([0, 0, 1])
-                goal_position = BLUE_BOX_POSITION
-            # If any object disappeared from the scene
-            elif obs[0] == 0.0 or obs[7] == 0.0 or obs[14] == 0.0:
-                # Reset the environment
-                obs = collector.reset()
-                continue
-
-            # Concatenate the one-hot encoding with the goal position
-            action = np.concatenate((object_one_hot, goal_position))
-
-            # Put action in an array
-            action = np.array([action])
-
-            print("Beta: ", collector.beta)
-
-            # Step the environment
-            collector.step_async(action)
-
-            # Wait for the environment to finish
-            obs, rew, done, info = collector.step_wait()
-
-        # Train BC
-        dagger_trainer.extend_and_update()
+    # Load the trainer
+    trainer = reconstruct_trainer("src/ros2_RobotSimulation/test_node/test_node/scratch", env)
 
     # Evaluate the policy
-    mean_reward, _ = evaluate_policy(dagger_trainer.policy, env, n_eval_episodes=10)
-    print(f"Mean reward: {mean_reward}")
+    mean_reward, _ = evaluate_policy(trainer.policy, env, n_eval_episodes=10)
+    print("Mean reward: ", mean_reward)
 
     # Close the environment
     env.close()
