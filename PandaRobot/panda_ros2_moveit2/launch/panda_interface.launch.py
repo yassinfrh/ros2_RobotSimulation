@@ -366,14 +366,6 @@ def generate_launch_description():
         output="screen",
         parameters=[robot_description, robot_description_semantic, kinematics_yaml, {"use_sim_time": True}, {"ROB_PARAM": 'panda_arm'}],
     )
-
-    # ATTACHER action for ros2_grasping plugin:
-    Attacher = Node(
-        name="ATTACHER_action",
-        package="ros2_grasping",
-        executable="attacher_action.py",
-        output="screen",
-    )
     
     return LaunchDescription(
         [
@@ -446,7 +438,6 @@ def generate_launch_description():
                                 moveYPR_interface,
                                 moveROT_interface,
                                 moveRP_interface,
-                                Attacher,
                             ]
                         ),
 

@@ -48,7 +48,7 @@ class SpawnObject:
         self.blue_request.initial_pose.position.z = 0.73
 
     def get_urdf(self, urdf_file):
-        urdf_file_path = os.path.join(get_package_share_directory('ros2_grasping'), 'urdf', urdf_file)
+        urdf_file_path = os.path.join(get_package_share_directory('pick_place_interface'), 'urdf', urdf_file)
         xacro_file = xacro.process_file(urdf_file_path)
         return xacro_file.toxml()
     

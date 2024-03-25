@@ -20,9 +20,7 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'test_node = test_node.test_node:main',
             'orientation_node = test_node.orientation:main',
-            'webcam_node = test_node.webcam:main',
             'spawn_boxes = test_node.spawn_boxes:main',
             'pick_place_service_node = test_node.pick_place_service:main',
             'environment_node = test_node.environment:main',
