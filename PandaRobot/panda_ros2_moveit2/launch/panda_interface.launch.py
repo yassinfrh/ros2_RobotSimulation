@@ -83,41 +83,9 @@ def generate_launch_description():
                 launch_arguments={'world': panda_ros2_gazebo}.items(),
              )
 
-    # ========== COMMAND LINE ARGUMENTS ========== #
-    print("")
-    print(" --- Cranfield University --- ")
-    print("        (c) IFRA Group        ")
-    print("")
-
-    print("ros2_RobotSimulation --> PANDA ROBOT")
-    print("Launch file -> panda_interface.launch.py")
-
-    print("")
-    print("Robot configuration:")
-    print("")
-
-    # Cell Layout:
-    print("- Cell layout:")
-    error = True
-    while (error == True):
-        print("     + Option N1: PANDA ROBOT alone.")
-        print("     + Option N2: PANDA ROBOT on top of a pedestal.")
-        cell_layout = input ("  Please select: ")
-        if (cell_layout == "1"):
-            error = False
-            cell_layout_1 = "true"
-            cell_layout_2 = "false"
-        elif (cell_layout == "2"):
-            error = False
-            cell_layout_1 = "false"
-            cell_layout_2 = "true"
-        else:
-            print ("  Please select a valid option!")
-    print("")
-
-    # End-Effector:
-    print("- End-effector:")
-    print("     + No EE variants for this robot.")
+    # *********************** ROS2.0 Panda Robot *********************** #
+    cell_layout_1 = "false"
+    cell_layout_2 = "true"
     EE_no = "true"
     
     # error = True
@@ -135,7 +103,6 @@ def generate_launch_description():
     #         EE_*** = "true"
     #     else:
     #         print ("  Please select a valid option!")
-    print("")
 
     # ***** ROBOT DESCRIPTION ***** #
     # PANDA ROBOT Description file package:

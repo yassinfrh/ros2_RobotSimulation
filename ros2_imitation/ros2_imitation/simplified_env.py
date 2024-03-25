@@ -191,7 +191,7 @@ def main():
     rng = np.random.default_rng(0)
 
     # Delete scratch directory if it exists
-    shutil.rmtree("scratch", ignore_errors=True)
+    shutil.rmtree("~/ros_ws/src/ros2_RobotSimulation/ros2_imitation/scratch", ignore_errors=True)
 
     # Create BC trainer
     bc_trainer = bc.BC(
@@ -204,7 +204,7 @@ def main():
     # Create the DAgger trainer
     dagger_trainer = DAggerTrainer(
         venv=env,
-        scratch_dir="scratch",
+        scratch_dir="~/ros_ws/src/ros2_RobotSimulation/ros2_imitation/scratch",
         rng=rng,
         bc_trainer=bc_trainer,
     )

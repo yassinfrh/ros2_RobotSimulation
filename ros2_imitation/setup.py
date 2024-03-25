@@ -1,6 +1,8 @@
 from setuptools import find_packages, setup
+import os
+from glob import glob
 
-package_name = 'test_node'
+package_name = 'ros2_imitation'
 
 setup(
     name=package_name,
@@ -10,20 +12,22 @@ setup(
         ('share/ament_index/resource_index/packages',
             ['resource/' + package_name]),
         ('share/' + package_name, ['package.xml']),
+        (os.path.join('share', package_name), glob('launch/*.launch.py')),
     ],
     install_requires=['setuptools'],
     zip_safe=True,
     maintainer='yassin',
-    maintainer_email='yassin@todo.todo',
+    maintainer_email='yassin.frh@gmail.com',
     description='TODO: Package description',
     license='TODO: License declaration',
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'orientation_node = test_node.orientation:main',
-            'spawn_boxes = test_node.spawn_boxes:main',
-            'pick_place_service_node = test_node.pick_place_service:main',
-            'environment_node = test_node.environment:main',
+            'object_detection = ros2_imitation.object_detection:main',
+            'spawn_boxes_service = ros2_imitation.spawn_boxes_service:main',
+            'pick_place_service = ros2_imitation.pick_place_service:main',
+            'environment = ros2_imitation.environment:main',
+            'simplified_env = ros2_imitation.simplified_env:main',
         ],
     },
 )

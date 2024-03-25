@@ -1,10 +1,10 @@
 <?xml version="1.0"?>
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
-  <name>test_node</name>
+  <name>ros2_imitation</name>
   <version>0.0.0</version>
   <description>TODO: Package description</description>
-  <maintainer email="yassin@todo.todo">yassin</maintainer>
+  <maintainer email="yassin.frh@gmail.com">yassin</maintainer>
   <license>TODO: License declaration</license>
 
   <depend>rclpy</depend>
@@ -14,6 +14,8 @@
   <depend>sensor_msgs</depend>
   <depend>pick_place_interface</depend>
   <depend>gazebo_msgs</depend>
+  
+  <exec_depend>ros2launch</exec_depend>
 
   <test_depend>ament_copyright</test_depend>
   <test_depend>ament_flake8</test_depend>
