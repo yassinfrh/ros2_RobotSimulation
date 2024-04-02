@@ -17,16 +17,16 @@ def generate_launch_description():
             name='spawn_boxes_service',
             output='screen'
         )
-    # Pick and place service node
-    pick_place_service = Node(
+    # Pick and place action server node
+    pick_place_action_server = Node(
             package='ros2_imitation',
-            executable='pick_place_service',
-            name='pick_place_service',
+            executable='pick_place_action_server',
+            name='pick_place_action_server',
             output='screen'
         )
 
     return LaunchDescription([
         object_detection,
         spawn_boxes_service,
-        pick_place_service
+        pick_place_action_server
     ])

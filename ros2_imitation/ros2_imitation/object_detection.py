@@ -20,9 +20,9 @@ CAMERA_ORIENTATION = Rotation.from_euler('XYZ', [-180, 0.0, 90.0], degrees=True)
 # Camera intrinsic parameters
 K_MATRIX = np.array([[476.7030836014194, 0.0, 400.5], [0.0, 476.7030836014194, 200.5], [0.0, 0.0, 1.0]])
 
-class OrientationNode(Node):
+class ObjectDetectionNode(Node):
     def __init__(self):
-        super().__init__('orientation_node')
+        super().__init__('object_detection')
         self.subscription = self.create_subscription(
             Image,
             '/camera1/image_raw',
@@ -47,7 +47,7 @@ class OrientationNode(Node):
             self.get_logger().info('Failed to convert ROS Image to OpenCV image: {}'.format(e))
             return
 
-        # Process the image and compute the orientation
+        # Process the image and compute the detected objects positions
         self.process_image(cv_image)
 
     def process_image(self, img):
@@ -163,9 +163,9 @@ class OrientationNode(Node):
 
 def main(args=None):
     rclpy.init(args=args)
-    orientation_node = OrientationNode()
-    rclpy.spin(orientation_node)
-    orientation_node.destroy_node()
+    object_detection_node = ObjectDetectionNode()
+    rclpy.spin(object_detection_node)
+    object_detection_node.destroy_node()
     rclpy.shutdown()
 
 if __name__ == '__main__':
