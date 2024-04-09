@@ -18,7 +18,7 @@ class SpawnObject:
     def __init__(self):
         # Start node:
         rclpy.init()
-        self.node = rclpy.create_node('spawn_boxes_service')
+        self.node = rclpy.create_node('spawn_objects_service')
 
         self.node.get_logger().info(
             'Creating Service client to connect to `/spawn_entity`')

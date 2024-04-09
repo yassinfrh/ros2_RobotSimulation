@@ -64,7 +64,7 @@ class PickPlaceActionClient(Node):
 # Service client to spawn the objects
 class SpawnObjectClient(Node):
     def __init__(self):
-        super().__init__('spawn_object_client')
+        super().__init__('spawn_objects_client')
         self.client = self.create_client(Empty, '/spawn_objects')
 
     def send_request(self):

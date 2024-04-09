@@ -19,7 +19,6 @@ def generate_launch_description():
     environment = Node(
             package='ros2_imitation',
             executable='environment',
-            name='environment',
             output='screen'
         )
 
