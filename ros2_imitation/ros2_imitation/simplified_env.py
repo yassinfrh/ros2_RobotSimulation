@@ -25,7 +25,7 @@ TABLE_Y_MIN = -0.4
 TABLE_Y_MAX = -0.05
 
 # Threshold for the done condition
-THRESHOLD = 0.05
+THRESHOLD = 0.02
 
 
 # Simplified Gym environment for training and testing
@@ -77,6 +77,19 @@ class SimplifiedEnv(gymnasium.Env):
             self._state[9:12] = goal_position
         elif np.array_equal(moving_object, np.array([0, 0, 1])):
             self._state[15:] = goal_position
+
+        # Generate random number between 0 and 1
+        random_number = np.random.uniform(0, 1)
+
+        # If the random number is below 0.1, slightly move one of the objects to simulate collision
+        if random_number < 0.1:
+            random_object = np.random.randint(0, 3)
+            if random_object == 0:
+                self._state[3:5] += np.random.uniform(-0.05, 0.05, 2)
+            elif random_object == 1:
+                self._state[9:11] += np.random.uniform(-0.05, 0.05, 2)
+            elif random_object == 2:
+                self._state[15:17] += np.random.uniform(-0.05, 0.05, 2)
 
         # Get the info
         info = self.get_info()
@@ -191,7 +204,7 @@ def main():
     rng = np.random.default_rng(0)
 
     # Delete scratch directory if it exists
-    shutil.rmtree("~/ros_ws/src/ros2_RobotSimulation/ros2_imitation/scratch", ignore_errors=True)
+    shutil.rmtree("/home/yassin/ros_ws/src/ros2_RobotSimulation/ros2_imitation/scratch", ignore_errors=True)
 
     # Create BC trainer
     bc_trainer = bc.BC(
@@ -204,24 +217,19 @@ def main():
     # Create the DAgger trainer
     dagger_trainer = DAggerTrainer(
         venv=env,
-        scratch_dir="~/ros_ws/src/ros2_RobotSimulation/ros2_imitation/scratch",
+        scratch_dir="/home/yassin/ros_ws/src/ros2_RobotSimulation/ros2_imitation/scratch",
         rng=rng,
         bc_trainer=bc_trainer,
     )
 
 
-
-
     total_timesteps = 8000
     total_timestep_count = 0
-    round_num = 0
     rollout_round_min_timesteps = 500
     rollout_round_min_episodes = 3
 
     while total_timestep_count < total_timesteps:
         collector = dagger_trainer.create_trajectory_collector()
-        round_episode_count = 0
-        round_timestep_count = 0
 
         sample_until = rollout.make_sample_until(
             min_timesteps=max(rollout_round_min_timesteps, dagger_trainer.batch_size),
@@ -236,25 +244,12 @@ def main():
         )
 
         for traj in trajectories:
-            dagger_trainer._logger.record_mean(
-                "dagger/mean_episode_reward",
-                np.sum(traj.rews),
-            )
-            round_timestep_count += len(traj)
             total_timestep_count += len(traj)
 
         print("Total timesteps: ", total_timestep_count)
 
-        round_episode_count += len(trajectories)
-
-        dagger_trainer._logger.record("dagger/total_timesteps", total_timestep_count)
-        dagger_trainer._logger.record("dagger/round_num", round_num)
-        dagger_trainer._logger.record("dagger/round_episode_count", round_episode_count)
-        dagger_trainer._logger.record("dagger/round_timestep_count", round_timestep_count)
-
         # `logger.dump` is called inside BC.train within the following fn call:
         dagger_trainer.extend_and_update()
-        round_num += 1
 
     # Save the policy
     dagger_trainer.save_trainer()
