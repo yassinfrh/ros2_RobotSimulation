@@ -9,7 +9,7 @@ from scipy.spatial.transform import Rotation
 
 # Limits of the table
 TABLE_X_MIN = 0.3
-TABLE_X_MAX = 0.65
+TABLE_X_MAX = 0.6
 TABLE_Y_MIN = -0.4
 TABLE_Y_MAX = -0.05
 

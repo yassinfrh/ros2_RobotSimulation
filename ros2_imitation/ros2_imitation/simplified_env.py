@@ -8,7 +8,7 @@ from imitation.data.wrappers import RolloutInfoWrapper
 from stable_baselines3.common.evaluation import evaluate_policy
 
 from imitation.algorithms import bc
-from imitation.algorithms.dagger import DAggerTrainer
+from imitation.algorithms.dagger import DAggerTrainer, ExponentialBetaSchedule, LinearBetaSchedule
 from imitation.data import rollout
 from gymnasium.utils.env_checker import check_env
 from gymnasium.wrappers import TimeLimit
@@ -20,7 +20,7 @@ BLUE_BOX_POSITION = np.array([0.6, 0.3, 0.74])
 
 # Limits of the initial positions of the objects
 TABLE_X_MIN = 0.3
-TABLE_X_MAX = 0.65
+TABLE_X_MAX = 0.6
 TABLE_Y_MIN = -0.4
 TABLE_Y_MAX = -0.05
 
@@ -81,7 +81,7 @@ class SimplifiedEnv(gymnasium.Env):
         # Generate random number between 0 and 1
         random_number = np.random.uniform(0, 1)
 
-        # If the random number is below 0.1, slightly move one of the objects to simulate collision
+        '''# If the random number is below 0.1, slightly move one of the objects to simulate collision
         if random_number < 0.1:
             random_object = np.random.randint(0, 3)
             if random_object == 0:
@@ -89,7 +89,7 @@ class SimplifiedEnv(gymnasium.Env):
             elif random_object == 1:
                 self._state[9:11] += np.random.uniform(-0.05, 0.05, 2)
             elif random_object == 2:
-                self._state[15:17] += np.random.uniform(-0.05, 0.05, 2)
+                self._state[15:17] += np.random.uniform(-0.05, 0.05, 2)'''
 
         # Get the info
         info = self.get_info()
@@ -183,14 +183,14 @@ class Policy:
 
         actions = np.array(actions)
 
-        # If the size of actionis 6, reshape it to (1, 6)
+        # If the size of action is 6, reshape it to (1, 6)
         if actions.size == 6:
             actions = actions.reshape(1, 6)
         
         return actions, state
     
+# Function to create the environment
 def _make_env():
-    """Helper function to create a single environment. Put any logic here, but make sure to return a RolloutInfoWrapper."""
     _env = SimplifiedEnv()
     _env = TimeLimit(_env, max_episode_steps=500)
     _env = RolloutInfoWrapper(_env)
@@ -220,12 +220,13 @@ def main():
         scratch_dir="/home/yassin/ros_ws/src/ros2_RobotSimulation/ros2_imitation/scratch",
         rng=rng,
         bc_trainer=bc_trainer,
+        beta_schedule=LinearBetaSchedule(8)
     )
 
 
-    total_timesteps = 8000
+    total_timesteps = 800
     total_timestep_count = 0
-    rollout_round_min_timesteps = 500
+    rollout_round_min_timesteps = 200
     rollout_round_min_episodes = 3
 
     while total_timestep_count < total_timesteps:

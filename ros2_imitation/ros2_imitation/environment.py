@@ -26,7 +26,7 @@ GREEN_BOX_POSITION = np.array([0.5, 0.3, 0.74])
 BLUE_BOX_POSITION = np.array([0.6, 0.3, 0.74])
 
 # Threshold for the done condition
-THRESHOLD = 0.05
+THRESHOLD = 0.02
 
 # Action client for the pick_place action
 class PickPlaceActionClient(Node):

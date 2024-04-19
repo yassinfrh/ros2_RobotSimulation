@@ -275,7 +275,7 @@ class PickPlaceActionServer(Node):
             end_position = numpy.array([goal.end_position_x, goal.end_position_y, goal.end_position_z])
 
             # Open the gripper
-            self.Gclient.send_goal(0.025)
+            self.Gclient.send_goal(0.04)
             # Update feedback
             feedback.stage = "Opening the gripper"
             goal_handle.publish_feedback(feedback)
