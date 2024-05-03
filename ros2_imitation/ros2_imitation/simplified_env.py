@@ -2,13 +2,14 @@ import gymnasium
 from gymnasium import spaces
 import numpy as np
 import shutil
+import time
 
 from stable_baselines3.common.vec_env import DummyVecEnv
 from imitation.data.wrappers import RolloutInfoWrapper
 from stable_baselines3.common.evaluation import evaluate_policy
 
 from imitation.algorithms import bc
-from imitation.algorithms.dagger import DAggerTrainer, ExponentialBetaSchedule, LinearBetaSchedule
+from imitation.algorithms.dagger import DAggerTrainer, ExponentialBetaSchedule, LinearBetaSchedule, reconstruct_trainer
 from imitation.data import rollout
 from gymnasium.utils.env_checker import check_env
 from gymnasium.wrappers import TimeLimit
@@ -25,7 +26,12 @@ TABLE_Y_MIN = -0.4
 TABLE_Y_MAX = -0.05
 
 # Threshold for the done condition
-THRESHOLD = 0.02
+THRESHOLD = 0.01
+
+# Scratch directory
+SCRATCH_DIR = "/home/yassin/ros_ws/src/ros2_RobotSimulation/ros2_imitation/scratch"
+
+TEST = True
 
 
 # Simplified Gym environment for training and testing
@@ -47,6 +53,9 @@ class SimplifiedEnv(gymnasium.Env):
         self._state[7] = 1.0
         self._state[14] = 1.0
 
+        # Counter for number of actions
+        self._action_count = 0
+
     def reset(self, seed=None, options=None):
         super().reset(seed=seed)
 
@@ -60,6 +69,8 @@ class SimplifiedEnv(gymnasium.Env):
             self._state[15:] = self.random_position()
             if np.linalg.norm(self._state[3:6] - self._state[15:]) > 0.05 and np.linalg.norm(self._state[9:12] - self._state[15:]) > 0.05:
                 break
+
+        self._action_count = 0
 
         return self._state, self.get_info()
 
@@ -78,10 +89,10 @@ class SimplifiedEnv(gymnasium.Env):
         elif np.array_equal(moving_object, np.array([0, 0, 1])):
             self._state[15:] = goal_position
 
-        # Generate random number between 0 and 1
+        '''# Generate random number between 0 and 1
         random_number = np.random.uniform(0, 1)
 
-        '''# If the random number is below 0.1, slightly move one of the objects to simulate collision
+        # If the random number is below 0.1, slightly move one of the objects to simulate collision
         if random_number < 0.1:
             random_object = np.random.randint(0, 3)
             if random_object == 0:
@@ -90,6 +101,9 @@ class SimplifiedEnv(gymnasium.Env):
                 self._state[9:11] += np.random.uniform(-0.05, 0.05, 2)
             elif random_object == 2:
                 self._state[15:17] += np.random.uniform(-0.05, 0.05, 2)'''
+        
+        # Increment action counter
+        self._action_count += 1
 
         # Get the info
         info = self.get_info()
@@ -99,6 +113,10 @@ class SimplifiedEnv(gymnasium.Env):
 
         # Check if the done condition is met
         done = self.is_done(info)
+
+        # If done, print the number of total actions
+        if TEST and (done or self._action_count == 50):
+            print("Number of actions: ", self._action_count)
 
         return self._state, reward, done, False, info
 
@@ -201,10 +219,18 @@ def main():
     # Create the environment
     env = DummyVecEnv([_make_env for _ in range(4)])
 
+    if TEST:
+        trainer = reconstruct_trainer(SCRATCH_DIR, env)
+        mean_reward, _ = evaluate_policy(trainer.policy, env, n_eval_episodes=10)
+        print("Mean reward: ", mean_reward)
+
+        return
+
+
     rng = np.random.default_rng(0)
 
     # Delete scratch directory if it exists
-    shutil.rmtree("/home/yassin/ros_ws/src/ros2_RobotSimulation/ros2_imitation/scratch", ignore_errors=True)
+    shutil.rmtree(SCRATCH_DIR, ignore_errors=True)
 
     # Create BC trainer
     bc_trainer = bc.BC(
@@ -217,17 +243,20 @@ def main():
     # Create the DAgger trainer
     dagger_trainer = DAggerTrainer(
         venv=env,
-        scratch_dir="/home/yassin/ros_ws/src/ros2_RobotSimulation/ros2_imitation/scratch",
+        scratch_dir=SCRATCH_DIR,
         rng=rng,
         bc_trainer=bc_trainer,
-        beta_schedule=LinearBetaSchedule(8)
+        beta_schedule=LinearBetaSchedule(200)
     )
 
 
-    total_timesteps = 800
+    total_timesteps = 19000
     total_timestep_count = 0
-    rollout_round_min_timesteps = 200
+    rollout_round_min_timesteps = 190
     rollout_round_min_episodes = 3
+
+    # Start timer
+    start_time = time.time()
 
     while total_timestep_count < total_timesteps:
         collector = dagger_trainer.create_trajectory_collector()
@@ -249,8 +278,12 @@ def main():
 
         print("Total timesteps: ", total_timestep_count)
 
-        # `logger.dump` is called inside BC.train within the following fn call:
+        # Extend the dataset and train the policy
         dagger_trainer.extend_and_update()
+
+    # End timer
+    end_time = time.time()
+    print("Training time: ", end_time - start_time)
 
     # Save the policy
     dagger_trainer.save_trainer()

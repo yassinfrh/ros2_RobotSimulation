@@ -299,7 +299,7 @@ def main():
     env = DummyVecEnv([lambda: RolloutInfoWrapper(env)])
 
     # Load the trainer
-    trainer = reconstruct_trainer("src/ros2_RobotSimulation/ros2_imitation/scratch", env)
+    trainer = reconstruct_trainer("/home/yassin/ros_ws/src/ros2_RobotSimulation/ros2_imitation/scratch", env)
 
     # Evaluate the policy
     mean_reward, _ = evaluate_policy(trainer.policy, env, n_eval_episodes=10)
