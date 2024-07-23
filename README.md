@@ -5,6 +5,7 @@ This repository contains a Gazebo and ROS2 Humble simulation of a Franka Panda r
 ## Table of Contents
 - [Installation](#installation)
 - [Usage](#usage)
+- [Demo](#demo)
 - [Features](#features)
 - [Project Structure](#project-structure)
 - [Acknowledgements](#acknowledgements)
@@ -42,6 +43,11 @@ This repository contains a Gazebo and ROS2 Humble simulation of a Franka Panda r
     ```sh
     ros2 launch ros2_imitation policy_test.launch.py
     ```
+
+## Demo
+
+https://github.com/user-attachments/assets/123f4005-6382-42d4-9dd5-a557d98a4013
+
 
 ## Features
 
