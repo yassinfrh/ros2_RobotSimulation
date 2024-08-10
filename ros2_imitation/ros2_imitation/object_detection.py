@@ -1,7 +1,6 @@
 import cv2 as cv
 from math import atan2, cos, sin, sqrt, pi, tan
 import numpy as np
-
 import rclpy
 from rclpy.node import Node
 from sensor_msgs.msg import Image
@@ -89,6 +88,7 @@ class ObjectDetectionNode(Node):
                 red_object.x, red_object.y, red_object.z = position
                 # Append the message to the list of detected objects
                 self.detected_objects_msg.list.append(red_object)
+                angle = self.get_orientation(red_contour, img)
             
             
 
@@ -104,6 +104,7 @@ class ObjectDetectionNode(Node):
                 green_object.x, green_object.y, green_object.z = position
                 # Append the message to the list of detected objects
                 self.detected_objects_msg.list.append(green_object)
+                angle = self.get_orientation(green_contour, img)
 
 
         if len(blue_contours) > 0:
@@ -117,6 +118,7 @@ class ObjectDetectionNode(Node):
                 blue_object.x, blue_object.y, blue_object.z = position
                 # Append the message to the list of detected objects
                 self.detected_objects_msg.list.append(blue_object)
+                angle = self.get_orientation(blue_contour, img)
             
 
         # Show the image
@@ -155,7 +157,35 @@ class ObjectDetectionNode(Node):
         cv.putText(img, 'X: {:.2f} m'.format(object_position_world[0]), (cX, cY-20), font, 0.5, (0, 0, 0), 1, cv.LINE_AA)
         cv.putText(img, 'Y: {:.2f} m'.format(object_position_world[1]), (cX, cY), font, 0.5, (0, 0, 0), 1, cv.LINE_AA)
 
+        # Diplay contour
+        cv.drawContours(img, [contour], -1, (0, 0, 0), 2)
+
         return object_position_world
+    
+    def get_orientation(self, contour, img):
+        # Take the corners of the contour
+        rect = cv.minAreaRect(contour)
+
+        # Compute the angle of the object
+        angle = rect[2]
+
+        # Compute the center of the contour
+        x, y = rect[0]
+
+        # Keep the angle between -45 and 45 degrees
+        if angle < -45:
+            angle += 90
+        elif angle > 45:
+            angle -= 90
+
+        angle = -angle
+
+        # Draw the text on the image
+        font = cv.FONT_HERSHEY_SIMPLEX
+        cv.putText(img, 'Angle: {:.2f} deg'.format(angle), (int(x), int(y) + 20), font, 0.5, (0, 0, 0), 1, cv.LINE_AA)
+
+        return angle
+        
         
         
 

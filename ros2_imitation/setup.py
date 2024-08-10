@@ -28,6 +28,8 @@ setup(
             'pick_place_action_server = ros2_imitation.pick_place_action_server:main',
             'environment = ros2_imitation.environment:main',
             'simplified_env = ros2_imitation.simplified_env:main',
+            'image_saver = ros2_imitation.image_saver:main',
+            'object_detection_yolo = ros2_imitation.object_detection_yolo:main',
         ],
     },
 )
